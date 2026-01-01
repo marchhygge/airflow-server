@@ -1,0 +1,17 @@
+# Airflow runtime files
+airflow.cfg
+airflow.db
+logs/
+standalone_admin_password.txt
+webserver_config.py
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+airflow_venv/
+../airflow_venv/
+
+# Env
+.env
