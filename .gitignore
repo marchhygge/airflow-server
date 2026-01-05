@@ -8,6 +8,7 @@ webserver_config.py
 # Python
 __pycache__/
 *.pyc
+testConnection.ipynb
 
 # Virtual environment
 airflow_venv/
