@@ -1,6 +1,6 @@
-name: Deploy to EC2
+name: Deploy Airflow DAGs to EC2
 
-# Trigger khi merge vào main branch
+# Trigger khi push / merge vào main
 on:
   push:
     branches:
@@ -11,70 +11,73 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
+      # Step 1: Checkout source code (để log & trace)
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Step 2: Validate secrets
+      # Step 2: Validate required secrets
       - name: Validate secrets
         run: |
-          if [ -z "${{ secrets.EC2_HOST }}" ]; then
-            echo "Error: EC2_HOST secret not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.EC2_USERNAME }}" ]; then
-            echo "Error: EC2_USERNAME secret not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.EC2_PRIVATE_KEY }}" ]; then
-            echo "Error: EC2_PRIVATE_KEY secret not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.AIRFLOW_PROJECT_PATH }}" ]; then
-            echo "Error: AIRFLOW_PROJECT_PATH secret not set"
-            exit 1
-          fi
-          echo "All secrets are configured"
+          set -e
+          : "${{ secrets.EC2_HOST }}"
+          : "${{ secrets.EC2_USERNAME }}"
+          : "${{ secrets.EC2_PRIVATE_KEY }}"
+          : "${{ secrets.AIRFLOW_PROJECT_PATH }}"
+          echo "✅ All required secrets are set"
 
-      # Step 3: Test SSH connection
+      # Step 3: Test SSH connection to EC2
       - name: Test SSH connection
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          port: ${{ secrets.EC2_PORT }}
+          port: ${{ secrets.EC2_PORT || 22 }}
           script: |
-            echo "SSH connection successful"
+            echo "✅ SSH connected"
             whoami
             pwd
 
-      # Step 4: Pull latest code
+      # Step 4: Pull latest code on EC2 (MAIN STEP)
       - name: Pull latest code from main
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          port: ${{ secrets.EC2_PORT }}
+          port: ${{ secrets.EC2_PORT || 22 }}
           script: |
+            set -e
             cd ${{ secrets.AIRFLOW_PROJECT_PATH }}
-            echo "Current directory: $(pwd)"
-            git fetch origin
-            git pull origin main
-            echo "Code pulled successfully"
 
-      # Step 5: Verify deployment
-      - name: Verify deployment
-        uses: appleboy/ssh-action@master
+            echo "📂 Current directory:"
+            pwd
+
+            echo "📌 Git status:"
+            git status
+
+            echo "⬇️ Pulling latest code from main..."
+            git pull origin main
+
+            echo "✅ Code pulled successfully"
+
+      # Step 5: Verify DAGs & Airflow reload
+      - name: Verify Airflow DAGs
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          port: ${{ secrets.EC2_PORT }}
+          port: ${{ secrets.EC2_PORT || 22 }}
           script: |
+            echo "📂 Project path:"
             cd ${{ secrets.AIRFLOW_PROJECT_PATH }}
-            echo "Deployment completed successfully"
-            echo "Project path: $(pwd)"
-            echo "Latest commit: $(git log -1 --oneline)"
-            # Note: airflow standalone tự động reload DAGs sau khi code thay đổi
+            pwd
+
+            echo "🧾 Latest commit:"
+            git log -1 --oneline
+
+            echo "📁 DAG files:"
+            ls dags || true
+
+            echo "ℹ️ Airflow will auto-reload DAGs (standalone mode)"
