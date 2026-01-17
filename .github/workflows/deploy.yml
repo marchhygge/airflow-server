@@ -1,6 +1,5 @@
 name: Deploy Airflow DAGs to EC2
 
-# Trigger khi push / merge vào main
 on:
   push:
     branches:
