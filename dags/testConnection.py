@@ -4,6 +4,9 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime
 import pandas as pd
 from tabulate import tabulate
+import logging
+
+log = logging.getLogger(__name__)
 
 def test_supermarket_conn():
     hook = PostgresHook(postgres_conn_id="supermarket")
@@ -21,9 +24,7 @@ def test_supermarket_conn():
         showindex=False
     )
 
-    print("\n============= SAMPLE DATA ============\n")
-    print(table)
-    print("\n======================================\n")
+    log.info("\n%s\n", table)
 
 with DAG(
     dag_id="test_supermarket_connection",
