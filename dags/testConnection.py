@@ -3,6 +3,7 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime
 import pandas as pd
+from tabulate import tabulate
 
 def test_supermarket_conn():
     hook = PostgresHook(postgres_conn_id="supermarket")
@@ -12,7 +13,17 @@ def test_supermarket_conn():
         "select * from customers limit 10",
         engine
     )
-    print(df)
+
+    table = tabulate(
+        df,
+        headers='keys',
+        tablefmt='psql',
+        showindex=False
+    )
+
+    print("\n============= SAMPLE DATA ============\n")
+    print(table)
+    print("\n======================================\n")
 
 with DAG(
     dag_id="test_supermarket_connection",
