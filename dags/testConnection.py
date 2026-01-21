@@ -2,11 +2,22 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime
+from tabulate import tabulate
 
 def test_supermarket_conn():
     hook = PostgresHook(postgres_conn_id="supermarket")
-    result = hook.get_first("select * from customers limit 10")
-    print(result)
+    df = hook.get_pandas_df("""
+        select * 
+        from customers 
+        limit 10
+    """)
+    table = tabulate(
+        df,
+        headers='keys',
+        tablefmt='psql',
+        showindex=False
+    )
+    print(table)
 
 with DAG(
     dag_id="test_supermarket_connection",
