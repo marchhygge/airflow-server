@@ -1,0 +1,40 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: centralize
+    table: fact_order
+
+query:
+  create_sql: |
+    create table if not exists {{ schema }}.{{ table }} as
+    select o.order_id
+          , o.customer_id
+          , c.customer_city
+          , c.customer_state
+          , o.order_status
+          , o.order_purchase_timestamp 
+          , date(o.order_purchase_timestamp) as order_date
+          , o.order_approved_at
+          , o.order_delivered_customer_date
+          , o.order_estimated_delivery_date
+    from orders o 
+    left join customers c using (customer_id)
+    where date(o.order_purchase_timestamp) >= '{{ month_start }}'
+      and date(o.order_purchase_timestamp) < '{{ month_end }}';
+
+  insert_sql: |
+    insert into {{ schema }}.{{ table }}
+    select o.order_id
+          , o.customer_id
+          , c.customer_city
+          , c.customer_state
+          , o.order_status
+          , o.order_purchase_timestamp 
+          , date(o.order_purchase_timestamp) as order_date
+          , o.order_approved_at
+          , o.order_delivered_customer_date
+          , o.order_estimated_delivery_date
+    from orders o 
+    left join customers c using (customer_id)
+    where date(o.order_purchase_timestamp) >= '{{ month_start }}'
+      and date(o.order_purchase_timestamp) < '{{ month_end }}';

@@ -1,0 +1,92 @@
+"""
+Docstring for services.sql_service
+This file contains utility functions for SQL database operations.
+"""
+
+from jinja2 import Template
+from services.validate_service import validate_inputs
+import logging
+
+log = logging.getLogger(__name__)
+
+# Check exist table
+def check_exist_table(pg_hook, table_name):
+    """
+        Check if a table exists in the database.
+        
+        agrs:
+            pg_hook: PostgreSQL hook connection
+            table_name: Name of the table to check
+
+        returns:
+            bool: True if table exists, False otherwise
+
+        raises:
+            ValueError: If inputs are invalid
+    """
+    try:
+        validate_inputs(pg_hook, table_name)
+
+        query = f"""
+            SELECT EXISTS (
+                SELECT 1 
+                FROM information_schema.tables 
+                WHERE table_name = %s
+            );
+        """
+        result = pg_hook.get_first(query, parameters=(table_name,))
+
+        if result is None or len(result) == 0:
+            raise ValueError(f"Could not find '{table_name}'")
+        exists = result[0]  
+
+        return exists
+    except Exception as e:
+        log.error(f"Error checking existence of table '{table_name}': {str(e)}")
+        raise
+
+
+# render function
+def render_template(raw_sql, **kwargs):
+    """
+        Render a SQL template with provided parameters.
+        agrs:
+            raw_sql: Raw SQL string with Jinja2 templates
+            kwargs: parameters for template rendering
+        returns:
+            str: Rendered SQL string
+        raises:
+            ValueError: If inputs are invalid
+    """
+    try:
+        result = Template(raw_sql).render(**kwargs)
+        if not result:
+            raise ValueError("Rendered SQL is empty")
+        
+        return result
+    except Exception as e:
+        log.error(f"Error rendering SQL template: {str(e)}")
+        raise  
+
+# excute function
+def execute_sql(pg_hook, sql):
+    """
+        Execute a SQL command.
+        
+        agrs:
+            pg_hook: PostgreSQL hook connection
+            sql: SQL command to execute
+
+        returns:
+            None
+
+        raises:
+            ValueError: If inputs are invalid
+    """
+    try:
+        validate_inputs(pg_hook, sql)
+        pg_hook.run(sql)
+        log.info("SQL executed successfully.")
+    except Exception as e:
+        log.error(f"Error executing SQL: {str(e)}")
+        raise
