@@ -8,13 +8,14 @@ with DAG(
     start_date=datetime(2026, 1, 22, 9, 0),
     schedule="@daily",
     catchup=False,
-    depend_on_past=True,
     tags=["test", "backfill"],
 ) as dag:
 
     run = PythonOperator(
         task_id="run_backfill",
-        python_callable=run_backfill
+        python_callable=run_backfill,
+        depends_on_past=True,
     )
+
 
 
