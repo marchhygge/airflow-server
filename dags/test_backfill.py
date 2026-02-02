@@ -7,7 +7,7 @@ with DAG(
     dag_id="fact_order_test_backfill_one_month_per_day",
     start_date=datetime(2026, 2, 1, 9, 0),
     schedule="@daily",
-    catchup=False,
+    catchup=True,
     tags=["test", "backfill"],
 ) as dag:
 
