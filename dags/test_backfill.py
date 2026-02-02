@@ -1,7 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
-from plugins.services.backfill_service import run_backfill
+from services.backfill_service import run_backfill
 
 with DAG(
     dag_id="fact_order_test_backfill_one_month_per_day",
