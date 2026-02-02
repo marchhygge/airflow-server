@@ -9,23 +9,11 @@ Goal:
 """
 
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
+from datetime import datetime, date
+from services.validate_service import validate_inputs
 import logging
 
 log = logging.getLogger(__name__)
-
-
-def validate_inputs(pg_hook, job_name):
-    """Validate input parameters"""
-    if pg_hook is None:
-        raise ValueError("pg_hook cannot be None")
-    
-    if not job_name or not isinstance(job_name, str):
-        raise ValueError("job_name must be a non-empty string")
-    
-    if job_name.strip() == "":
-        raise ValueError("job_name cannot be empty or whitespace")
-
 
 def get_last_processed_month(pg_hook, job_name):
     """
@@ -61,8 +49,17 @@ def get_last_processed_month(pg_hook, job_name):
             raise ValueError(f"last_processed_month is NULL for job '{job_name}'")
         
         # Validate it's a datetime object
-        if not isinstance(last_processed_month, datetime):
-            raise TypeError(f"Expected datetime object, got {type(last_processed_month)}")
+        if isinstance(last_processed_month, date) and not isinstance(last_processed_month, datetime):
+            # convert date -> datetime (00:00:00)
+            last_processed_month = datetime.combine(
+                last_processed_month,
+                datetime.min.time()
+            )
+
+        elif not isinstance(last_processed_month, datetime):
+            raise TypeError(
+                f"Expected date or datetime, got {type(last_processed_month)}"
+        )
         
         log.info(f"Retrieved last_processed_month for job '{job_name}': {last_processed_month}")
         return last_processed_month
