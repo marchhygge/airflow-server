@@ -13,10 +13,10 @@ def run_backfill():
     with open(CONFIG_PATH) as f:
         config = yaml.safe_load(f)
 
-    conn_id = config['postgres'][0]
-    schema = config['postgres'][1]
-    table = config['postgres'][2]
-    job_name = config['postgres'][2]
+    conn_id = config["postgres"]["conn_id"]
+    schema  = config["postgres"]["target"]["schema"]
+    table   = config["postgres"]["target"]["table"]
+    job_name = config["postgres"]["target"]["table"]
 
     pg_hook = PostgresHook(postgres_conn_id=conn_id, schema=schema)
 
