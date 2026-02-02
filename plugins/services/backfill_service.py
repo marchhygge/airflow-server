@@ -18,7 +18,7 @@ def run_backfill():
     table   = config["postgres"]["target"]["table"]
     job_name = config["postgres"]["target"]["table"]
 
-    pg_hook = PostgresHook(postgres_conn_id=conn_id, schema=schema)
+    pg_hook = PostgresHook(postgres_conn_id=conn_id)
 
     # checkpoint
     last_processed_month = get_last_processed_month(pg_hook, job_name)
