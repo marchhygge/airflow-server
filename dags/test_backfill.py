@@ -14,7 +14,7 @@ with DAG(
     run = PythonOperator(
         task_id="run_backfill",
         python_callable=run_backfill,
-        depends_on_past=True,
+        depends_on_past=False,
     )
 
 
