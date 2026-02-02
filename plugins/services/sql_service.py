@@ -10,7 +10,7 @@ import logging
 log = logging.getLogger(__name__)
 
 # Check exist table
-def check_exist_table(pg_hook, table_name):
+def check_exist_table(pg_hook, schema, table_name):
     """
         Check if a table exists in the database.
         
@@ -27,20 +27,16 @@ def check_exist_table(pg_hook, table_name):
     try:
         validate_inputs(pg_hook, table_name)
 
-        query = f"""
+        query = """
             SELECT EXISTS (
-                SELECT 1 
-                FROM information_schema.tables 
-                WHERE table_name = %s
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = %s
+                AND table_name = %s
             );
         """
-        result = pg_hook.get_first(query, parameters=(table_name,))
-
-        if result is None or len(result) == 0:
-            raise ValueError(f"Could not find '{table_name}'")
-        exists = result[0]  
-
-        return exists
+        result = pg_hook.get_first(query, parameters=(schema, table_name))
+        return result[0]
     except Exception as e:
         log.error(f"Error checking existence of table '{table_name}': {str(e)}")
         raise

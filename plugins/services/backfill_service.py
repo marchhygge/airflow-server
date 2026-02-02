@@ -25,7 +25,7 @@ def run_backfill():
     month_start, month_end = get_next_month(last_processed_month)
 
     # check table exists
-    exist = check_exist_table(pg_hook, table)
+    exist = check_exist_table(pg_hook, schema, table)
 
     raw_sql = (
         config['query']['insert_sql'] 
