@@ -1,5 +1,6 @@
 import yaml
 from datetime import timedelta
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from services.checkpoint_service import *
@@ -77,7 +78,7 @@ def run_backfill(config_file_name):
                 schema=schema,
                 table=table,
                 start_date=date.strftime("%Y-%m-01"),
-                end_date=(date + timedelta(months=1)).strftime("%Y-%m-01")
+                end_date=(date + relativedelta(months=1)).strftime("%Y-%m-01")
             )
             log.info("Executing table creation SQL...")
             log.info(f"date parameter: {date}")
@@ -99,7 +100,7 @@ def run_backfill(config_file_name):
             schema=schema,
             table=table,
             start_date=date.strftime("%Y-%m-01"),
-            end_date=(date + timedelta(months=1)).strftime("%Y-%m-01")
+            end_date=(date + relativedelta(months=1)).strftime("%Y-%m-01")
         )  
         log.info(f"Rendered SQL: {sql}")
 
