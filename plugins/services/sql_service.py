@@ -41,6 +41,24 @@ def check_exist_table(pg_hook, schema, table_name):
         log.error(f"Error checking existence of table '{table_name}': {str(e)}")
         raise
 
+# Get max date
+def get_max_date(pg_hook, schema, table_name):
+    """
+        Get the maximum date from a date column in the specified table.
+        
+        agrs:
+            pg_hook: PostgreSQL hook connection
+            table_name: Name of the table to query
+        returns:
+            datetime: Maximum date found in the table
+        raises:
+            ValueError: If inputs are invalid
+    """
+    try:
+        sql = f"SELECT MAX(date_column) FROM {schema}.{table_name};"
+        result = pg_hook.get_first(sql)
+    except Exception as e:
+        log.error(f"Error getting max date from table '{table_name}': {str(e)}")
 
 # render function
 def render_template(raw_sql, **kwargs):

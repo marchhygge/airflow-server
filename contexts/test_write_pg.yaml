@@ -3,38 +3,39 @@ postgres:
   target:
     schema: centralize
     table: fact_order
+    order_date: 2016-09-04
 
 query:
-  create_sql: |
-    create table if not exists {{ schema }}.{{ table }} as
-    select o.order_id
-          , o.customer_id
-          , c.customer_city
-          , c.customer_state
-          , o.order_status
-          , o.order_purchase_timestamp 
-          , date(o.order_purchase_timestamp) as order_date
-          , o.order_approved_at
-          , o.order_delivered_customer_date
-          , o.order_estimated_delivery_date
-    from orders o 
-    left join customers c using (customer_id)
-    where date(o.order_purchase_timestamp) >= '{{ month_start }}'
-      and date(o.order_purchase_timestamp) < '{{ month_end }}';
-
-  insert_sql: |
-    insert into {{ schema }}.{{ table }}
-    select o.order_id
-          , o.customer_id
-          , c.customer_city
-          , c.customer_state
-          , o.order_status
-          , o.order_purchase_timestamp 
-          , date(o.order_purchase_timestamp) as order_date
-          , o.order_approved_at
-          , o.order_delivered_customer_date
-          , o.order_estimated_delivery_date
-    from orders o 
-    left join customers c using (customer_id)
-    where date(o.order_purchase_timestamp) >= '{{ month_start }}'
-      and date(o.order_purchase_timestamp) < '{{ month_end }}';
+  function: 
+    create: create table if not exists {{ schema }}.{{ table }} as
+    insert: insert into {{ schema }}.{{ table }}
+  sql: |
+    SELECT o.order_id,
+           o.customer_id,
+           c.customer_city AS customer_city,
+           c.customer_state AS customer_state,
+           o.order_status,
+           o.order_purchase_timestamp,
+           DATE(o.order_purchase_timestamp) AS order_date,
+           s.seller_id,
+           s.seller_city,
+           s.seller_state,
+           pr.product_id,
+           pr.product_category_name,
+           oi.price,
+           oi.freight_value,
+           SUM(p.payment_value) AS payment_value
+    FROM orders o
+    LEFT JOIN customers c
+        ON o.customer_id = c.customer_id
+    LEFT JOIN order_payments p
+        ON o.order_id = p.order_id
+    LEFT JOIN order_items oi
+        ON o.order_id = oi.order_id
+    LEFT JOIN sellers s
+        ON oi.seller_id = s.seller_id
+    LEFT JOIN products pr
+        ON oi.product_id = pr.product_id
+    WHERE DATE(o.order_purchase_timestamp) >= '{{start_date}}'
+      AND DATE(o.order_purchase_timestamp) < '{{end_date}}'
+    GROUP by 1,2,3,4,5,6,7,8,9,10,11,12,13,14
