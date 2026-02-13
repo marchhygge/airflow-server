@@ -17,6 +17,7 @@ query:
            o.order_status,
            o.order_purchase_timestamp,
            DATE(o.order_purchase_timestamp) AS order_date,
+           DATE(o.order_purchase_timestamp) AS report_date,
            s.seller_id,
            s.seller_city,
            s.seller_state,
@@ -38,4 +39,4 @@ query:
         ON oi.product_id = pr.product_id
     WHERE DATE(o.order_purchase_timestamp) >= '{{start_date}}'
       AND DATE(o.order_purchase_timestamp) < '{{end_date}}'
-    GROUP by 1,2,3,4,5,6,7,8,9,10,11,12,13,14
+    GROUP by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15

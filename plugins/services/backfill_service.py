@@ -59,7 +59,6 @@ def run_backfill(config_file_name):
             log.info("Postgres hook created successfully")
 
         # 2. Check existence of target table
-        log.info(f"Checking existence of table '{schema}.{table}'...")
         is_exist = check_exist_table(pg_hook, schema, table)
 
         if not is_exist:
@@ -84,14 +83,12 @@ def run_backfill(config_file_name):
             raw_sql = (
                 config['query']['function']['insert'] + '\n' + config['query']['sql']
             )
-            log.info(f"getting max date from table '{schema}.{table}'...")
             date = get_max_date(pg_hook, schema, table)
             if not date:
                 raise ValueError(f"Failed to get max date from table '{schema}.{table}'")
             else:
                 log.info(f"date parameter: {date}")
         # 3. Render SQL query with parameters
-        log.info("Rendering SQL query with parameters...")
         sql = render_template(
             raw_sql,
             schema=schema,
@@ -102,9 +99,7 @@ def run_backfill(config_file_name):
         log.info(f"Rendered SQL: {sql}")
 
         # 4. Execute SQL query
-        log.info("Executing SQL query...")
         execute_sql(pg_hook, sql)
-        log.info("SQL execution completed successfully.")
         
     except Exception as e:
         log.error(f"Error in backfill process: {str(e)}")
