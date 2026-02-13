@@ -4,7 +4,7 @@ This file contains utility functions for SQL database operations.
 """
 
 from jinja2 import Template
-from services.validate_service import *
+from services.validate_services import *
 import logging
 
 log = logging.getLogger(__name__)
