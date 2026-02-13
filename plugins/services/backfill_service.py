@@ -1,5 +1,5 @@
 import yaml
-from datetime import timedelta
+from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -56,6 +56,11 @@ def run_backfill(config_file_name):
         
         log.info(f"Done loading configuration parameters in: {config_path}")
         
+        # Convert date object to datetime if needed
+        if date and not isinstance(date, datetime):
+            date = datetime.combine(date, datetime.min.time())
+            log.info(f"Converted date to datetime: {date}")
+        
         # Create Postgres hook
         log.info("Creating Postgres hook...")
         pg_hook = PostgresHook(postgres_conn_id=conn_id)
@@ -89,12 +94,17 @@ def run_backfill(config_file_name):
             raw_sql = (
                 config['query']['function']['insert'] + '\n' + config['query']['sql']
             )
-            date = get_max_date(pg_hook, schema, table)
-            date = (date.strftime("%Y-%m-01") + relativedelta(months=1)).strftime("%Y-%m-01")
+            date = get_max_date(pg_hook, schema, table)            
+            # Convert date object to datetime if needed
+            if date and not isinstance(date, datetime):
+                date = datetime.combine(date, datetime.min.time())
+                log.info(f"Converted max_date to datetime: {date}")
             if not date:
                 raise ValueError(f"Failed to get max date from table '{schema}.{table}'")
-            else:
-                log.info(f"date parameter: {date}")
+            
+            # Add 1 month to get next month for backfill
+            date = date + relativedelta(months=1)
+            log.info(f"start date for backfill: {date}")
         # 3. Render SQL query with parameters
         sql = render_template(
             raw_sql,
