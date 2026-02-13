@@ -42,6 +42,7 @@ def run_backfill(config_file_name):
                 table = v
             elif "date" in k.lower():
                 date = v
+        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, date={date}")
 
         if not isinstance(date, datetime):
             date = datetime.combine(date, datetime.min.time())
