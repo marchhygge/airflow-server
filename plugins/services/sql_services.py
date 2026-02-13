@@ -4,7 +4,7 @@ This file contains utility functions for SQL database operations.
 """
 
 from jinja2 import Template
-from services.validate_service import validate_inputs
+from services.validate_service import *
 import logging
 
 log = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def check_exist_table(pg_hook, schema, table_name):
     """
     try:
         log.info("Validating inputs for table existence check...")
-        validate_inputs(pg_hook, table_name)
+        validate_identifier(table_name, "table_name")
         log.info(f"Checking existence of table '{schema}.{table_name}'...")
         query = """
             SELECT EXISTS (
@@ -62,6 +62,32 @@ def get_max_date(pg_hook, schema, table_name):
         return result[0] if result else None
     except Exception as e:
         log.error(f"Error getting max date from table '{table_name}': {str(e)}")
+        raise
+
+# Check data available
+def check_data_available(pg_hook, sql):
+    """
+        Check if data is available for the given SQL query.
+        
+        agrs:
+            pg_hook: PostgreSQL hook connection
+            sql: SQL query to check for data availability
+        returns:
+            bool: True if data is available, False otherwise
+        raises:
+            ValueError: If inputs are invalid
+    """
+    sql = f"select 1 from ({sql}) limit 1;"
+    try:
+        log.info("Checking data availability with SQL query...")
+        exist = pg_hook.get_first(sql)
+        if exist:
+            return True
+        else:
+            return False
+    except Exception as e:
+        log.error(f"Error checking data availability: {str(e)}")
+        raise
 
 # render function
 def render_template(raw_sql, **kwargs):
@@ -82,6 +108,7 @@ def render_template(raw_sql, **kwargs):
             raise ValueError("Rendered SQL is empty")
         else:
             log.info("SQL query rendered successfully")
+            log.info(f"Rendered SQL: {result}")
         return result
     except Exception as e:
         log.error(f"Error rendering SQL template: {str(e)}")
@@ -101,7 +128,7 @@ def execute_sql(pg_hook, sql):
     """
     try:
         log.info("Validating inputs for SQL execution...")
-        validate_inputs(pg_hook, sql)
+        validate_sql(sql)
         log.info("Executing SQL query...")
         pg_hook.run(sql)
         log.info("SQL executed successfully.")
