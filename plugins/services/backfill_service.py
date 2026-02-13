@@ -90,6 +90,7 @@ def run_backfill(config_file_name):
                 config['query']['function']['insert'] + '\n' + config['query']['sql']
             )
             date = get_max_date(pg_hook, schema, table)
+            date = (date + relativedelta(months=1)).strftime("%Y-%m-01")
             if not date:
                 raise ValueError(f"Failed to get max date from table '{schema}.{table}'")
             else:
