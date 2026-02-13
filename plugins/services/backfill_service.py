@@ -31,23 +31,28 @@ def run_backfill(config_file_name):
         config_dict = {**config["postgres"], **config["postgres"]["target"]}
         log.info(f"Configuration parameters: {config_dict}")
 
+        conn_id = schema = table = date = None
         for key, value in config_dict.items():
+            # Skip nested dict
+            if isinstance(value, dict):
+                continue
+            
             if value is None:
                 raise ValueError(f"Configuration parameter '{key}' cannot be None")
-            else:
-                log.info("Loading configuration parameters...")
-                if 'con' in str(value).lower():
-                    conn_id = value
-                    log.info(f"Connection='{conn_id}'")
-                if 'schema' in str(value).lower():
-                    schema = value
-                    log.info(f"Schema='{schema}'")
-                if 'table' in str(value).lower():
-                    table = value
-                    log.info(f"Table='{table}'")
-                if 'date' in str(value).lower():
-                    date = value
-                    log.info(f"Date='{date}'")
+ 
+            if 'con' in key.lower():
+                conn_id = value
+                log.info(f"Connection='{conn_id}'")
+            elif 'schema' in key.lower():
+                schema = value
+                log.info(f"Schema='{schema}'")
+            elif 'table' in key.lower():
+                table = value
+                log.info(f"Table='{table}'")
+            elif 'date' in key.lower():
+                date = value
+                log.info(f"Date='{date}'")
+        
         log.info(f"Done loading configuration parameters in: {config_path}")
         
         # Create Postgres hook

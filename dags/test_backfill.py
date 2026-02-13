@@ -9,7 +9,8 @@ with DAG(
     start_date=datetime(2026, 2, 1, 9, 0),
     schedule="@daily",
     catchup=True,
-    tags=["test", "backfill"],
+    max_active_runs=1,
+    tags=["test", "backfill"],  
 ) as dag:
 
     # Specify config file name here
