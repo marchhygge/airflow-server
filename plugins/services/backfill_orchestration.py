@@ -63,7 +63,7 @@ def run_backfill(config_file_name):
         current_run = 0
         while current_run < max_run:
             sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template)
-            raw_sql = build_sql_for_month(raw_sql, schema, table, date, render_template)
+            raw_sql = build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template)
 
             if is_exist and not check_data_available(pg_hook, raw_sql):
                 log.info(f"No data for {start_date_dt:%Y-%m}, skipping")
