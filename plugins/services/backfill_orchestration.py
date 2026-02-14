@@ -61,6 +61,7 @@ def run_backfill(config_file_name):
         # 5. Backfill loop
         max_run = 24
         current_run = 0
+        process = False
         while current_run < max_run:
             sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template)
             raw_sql = build_sql_for_month(raw_sql_template, schema, table, start_date_dt, render_template)  
@@ -73,9 +74,13 @@ def run_backfill(config_file_name):
 
             execute_sql(pg_hook, sql)
             log.info(f"Backfill success for {start_date_dt:%Y-%m}")
+            process = True
             break
-
-        raise ValueError("No data found after max backfill window")
+        
+        if not process:
+            raise ValueError("No data found after max backfill window")
+        else:
+            log.info(f"Backfill process completed successfully in {start_date_dt:%Y-%m}")
 
     except Exception as e:
         log.error(f"Backfill failed: {str(e)}")
