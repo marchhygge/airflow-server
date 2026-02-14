@@ -28,6 +28,7 @@ def run_backfill(config_file_name):
         with open(config_path) as f:
             config = yaml.safe_load(f)
 
+        raw_sql = config['query']['sql']
         config_dict = {**config["postgres"], **config["postgres"]["target"]}
 
         conn_id = schema = table = date = None
@@ -54,16 +55,16 @@ def run_backfill(config_file_name):
         is_exist = check_exist_table(pg_hook, schema, table)
 
         # 4. Resolve SQL & start date
-        raw_sql = resolve_raw_sql(config, is_exist)
+        process_sql = resolve_raw_sql(config, is_exist)
         start_date_dt = resolve_start_date_dt(pg_hook, schema, table, date, is_exist)
 
         # 5. Backfill loop
         max_run = 24
         current_run = 0
         while current_run < max_run:
-            sql = build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template)
+            sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template)
 
-            if is_exist and not check_data_available(pg_hook, sql):
+            if is_exist and not check_data_available(pg_hook, raw_sql):
                 log.info(f"No data for {start_date_dt:%Y-%m}, skipping")
                 start_date_dt += relativedelta(months=1)
                 current_run += 1
