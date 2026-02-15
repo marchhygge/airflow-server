@@ -8,12 +8,17 @@ from services.sql_services import (
     check_exist_table,
     check_data_available,
     render_template,
-    execute_sql
+    execute_sql,
+    get_max_date
 )
 from services.backfill_services import (
     resolve_raw_sql,
     resolve_start_date_dt,
     build_sql_for_month
+)
+from services.validate_services import (
+    validate_logic_date,
+    validate_convert_datetime
 )
 
 log = logging.getLogger(__name__)
@@ -28,7 +33,8 @@ def run_backfill(config_file_name):
         with open(config_path) as f:
             config = yaml.safe_load(f)
 
-        raw_sql_template = config['query']['sql'] 
+        # Extract parameters by keywords
+        raw_sql_template = config['query']['sql']
         config_dict = {**config["postgres"], **config["postgres"]["target"]}
 
         conn_id = schema = table = date = None
@@ -41,46 +47,59 @@ def run_backfill(config_file_name):
                 schema = v
             elif "table" in k.lower():
                 table = v
-            elif "date" in k.lower():
-                date = v
-        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, date={date}")
+            elif "start_date" in k.lower():
+                start_date = v
+            elif "end_date" in k.lower():
+                end_date = v
+        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, end_date={end_date}")
 
-        if not isinstance(date, datetime):
-            date = datetime.combine(date, datetime.min.time())
+        # Validate & Convert datetime
+        start_date = validate_convert_datetime(start_date)
+        end_date = validate_convert_datetime(end_date)
+
+        # Validate logic date
+        validate_logic_date(start_date, end_date)
 
         # 2. Init Postgres hook
         pg_hook = PostgresHook(postgres_conn_id=conn_id)
 
-        # 3. Check table
+        # 3. Check table & get max_date to compare with end_date (if table exists)
         is_exist = check_exist_table(pg_hook, schema, table)
+        if is_exist:
+            max_date = get_max_date(pg_hook, schema, table)
+            if max_date:
+                max_date = validate_convert_datetime(max_date) 
+                if max_date >= end_date:
+                    log.info(f"Table {schema}.{table} is already up to date with max_date={max_date:%Y-%m-%d}, skipping backfill")
+                    return
 
         # 4. Resolve SQL & start date
         process_sql = resolve_raw_sql(config, is_exist)
-        start_date_dt = resolve_start_date_dt(pg_hook, schema, table, date, is_exist)
+        start_date_dt = resolve_start_date_dt(pg_hook, schema, table, start_date, is_exist)
 
-        # 5. Backfill loop
+        # 5. Backfill loop (Check data availability and execute SQL month by month)
         max_run = 24
         current_run = 0
-        process = False
-        while current_run < max_run:
-            sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template)
-            raw_sql = build_sql_for_month(raw_sql_template, schema, table, start_date_dt, render_template)  
+        execute = False
+        while start_date_dt <= end_date and current_run < max_run: 
 
+            # Check data availability if table exists
+            raw_sql = build_sql_for_month(raw_sql_template, schema, table, start_date_dt, render_template) 
             if is_exist and not check_data_available(pg_hook, raw_sql):
                 log.info(f"No data for {start_date_dt:%Y-%m}, skipping")
                 start_date_dt += relativedelta(months=1)
                 current_run += 1
                 continue
-
+            
+            # Execute SQL
+            sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template)
             execute_sql(pg_hook, sql)
-            log.info(f"Backfill success for {start_date_dt:%Y-%m}")
-            process = True
+            execute = True
             break
         
-        if not process:
-            raise ValueError("No data found after max backfill window")
-        else:
-            log.info(f"Backfill process completed successfully in {start_date_dt:%Y-%m}")
+        if not execute:
+            log.info(f"No executable month found in range {start_date:%Y-%m} to {end_date:%Y-%m}. Skipping.")
+            return
 
     except Exception as e:
         log.error(f"Backfill failed: {str(e)}")
