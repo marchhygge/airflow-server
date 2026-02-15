@@ -2,7 +2,6 @@
 Docstring for services.validate_service
 This file contains utility functions for validating input parameters.
 """
-import re
 from datetime import datetime, date as date_type
 
 def validate_pg(pg_hook):
