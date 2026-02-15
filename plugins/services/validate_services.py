@@ -8,18 +8,22 @@ def validate_pg(pg_hook):
     if pg_hook is None:
         raise ValueError("pg_hook cannot be None")
 
+
 def validate_sql(sql):
     if not sql or not isinstance(sql, str):
         raise ValueError("sql must be a non-empty string")
 
+
 def validate_identifier(name, label="identifier"):
     if not name or not isinstance(name, str):
         raise ValueError(f"{label} must be a non-empty string")
-    
+
+
 def validate_logic_date(start_date, end_date):
     if start_date >= end_date:
         raise ValueError("start_date must be before end_date")
-    
+
+
 def validate_convert_datetime(value):
     if isinstance(value, datetime):
         return value
