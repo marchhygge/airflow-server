@@ -10,6 +10,8 @@ query:
   function: 
     create: create table if not exists {{ schema }}.{{ table }} as
     insert: insert into {{ schema }}.{{ table }}
+  # Must have report_date in select statement, and report_date must be same as date to check availability in raw_sql
+  # report_date is used to check data availability in raw_sql, and also used to insert
   sql: | # SQL query with Jinja template variables {{ schema }}, {{ table }}, {{ start_date }}, {{ end_date }}
     SELECT o.order_id,
            o.customer_id,
@@ -18,7 +20,7 @@ query:
            o.order_status,
            o.order_purchase_timestamp,
            DATE(o.order_purchase_timestamp) AS order_date,
-           DATE(o.order_purchase_timestamp) AS report_date,
+           DATE(o.order_purchase_timestamp) AS report_date, 
            s.seller_id,
            s.seller_city,
            s.seller_state,

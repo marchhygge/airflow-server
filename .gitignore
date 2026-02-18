@@ -9,6 +9,8 @@ webserver_config.py
 __pycache__/
 *.pyc
 testConnection.ipynb
+kmeans_test.ipynb
+exchangre_rate_test.ipynb
 
 # Virtual environment
 airflow_venv/
