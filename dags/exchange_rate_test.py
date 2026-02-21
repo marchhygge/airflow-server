@@ -12,8 +12,7 @@ with DAG(
     start_date= datetime(2026, 2, 21, 10, 0),
     schedule="@daily",
     catchup=False, # Set to False to avoid backfilling when the DAG is first deployed
-    max_active_runs=1,
-    depends_on_past=True, 
+    max_active_runs=1, 
     tags=["exchange_rate","test"]
 ) as dag:
     
@@ -24,6 +23,7 @@ with DAG(
 
     exchange_rate = PythonOperator(
         task_id = "get_exchange_rates",
+        depends_on_past=True, # Ensure that this task runs after the previous execution has completed
         python_callable=partial(get_exchange_rates_df, config_file_name="exchange_rate.yaml")
     )
 
