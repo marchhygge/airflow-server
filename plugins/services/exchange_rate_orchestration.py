@@ -85,7 +85,7 @@ def get_exchange_rates_df(config_file_name):
         )
         log.info(f"Loaded {len(df)} exchange rates to PostgreSQL table '{db_config['target']['table']}' in schema '{db_config['target']['schema']}'.")
         log.info("Sample data:")
-        log.info(df.head(10))
+        log.info("\n" + df.head(10).to_markdown(index=False))
         
     except requests.exceptions.Timeout:
         raise RuntimeError("API Request timed out")
