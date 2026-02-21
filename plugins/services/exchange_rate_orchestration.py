@@ -65,8 +65,8 @@ def get_exchange_rates_df(config_file_name):
         load_df_to_postgres(
             dataframe=df, 
             conn_id=db_config["conn_id"], 
-            schema=db_config["schema"], 
-            table_name=db_config["exchange_rate_table"]
+            schema=db_config["target"]["schema"], 
+            table_name=db_config["target"]["table"]
         )
         return len(df) 
         
