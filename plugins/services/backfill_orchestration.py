@@ -19,13 +19,21 @@ from services.validate_services import (
     validate_logic_date,
     validate_convert_datetime
 )
-
+# logging configuration
 log = logging.getLogger(__name__)
 
+# Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
 CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
-
+# Main orchestration function to run backfill process
 def run_backfill(config_file_name):
+    """
+    Docstring for run_backfill as orchestration function to run backfill process
+    Args:
+    - config_file_name: str, the name of the config file in contexts directory
+    Raises:
+    - ValueError: If any validation fails or backfill process encounters an error
+    """
     try:
         # 1. Load config
         config_path = str(Path(CONTEXTS_DIR) / config_file_name)
@@ -96,6 +104,7 @@ def run_backfill(config_file_name):
             execute = True
             break
         
+        # If loop ends without execution, it means there is no data available for 24 months 
         if not execute:
             log.info(f"No executable month found in range {start_date:%Y-%m} to {end_date:%Y-%m}. Skipping.")
             return

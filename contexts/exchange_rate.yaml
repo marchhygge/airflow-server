@@ -1,0 +1,16 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: public
+    table: exchange_rates
+
+api:
+  base_url: https://v6.exchangerate-api.com/v6
+  exchange_rate_end_point: latest/BRL
+  quota_end_point: quota
+  error_messages: # https://www.exchangerate-api.com/docs/standard-requests -> Error Responses
+    unsupported-code: Currency code not supported.
+    malformed-request: "Request not properly formatted."
+    invalid-key: "API key is not valid."
+    inactive-account: "Account is inactive."
+    quota-reached: "API request quota reached."
