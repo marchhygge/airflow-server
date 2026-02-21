@@ -1,11 +1,17 @@
 import requests
+import logging
 import pandas as pd
+from datetime import datetime, timezone, timedelta
 from services.api_services import (
     validate_api_status,
     load_config,
     get_api_key,
     load_df_to_postgres
 )
+
+# log configuration
+
+log = logging.getLogger(__name__)
 
 def get_quota_info(config_file_name):
     """
@@ -30,7 +36,7 @@ def get_quota_info(config_file_name):
         # Validate API response and extract data
         data = validate_api_status(response, config["api"]["error_messages"])
         
-        print(f"Quota Info - Plan: {data.get('plan_quota')}, Remaining: {data.get('requests_remaining')}")
+        log.info(f"Quota Info - Plan: {data.get('plan_quota')}, Remaining: {data.get('requests_remaining')}")
         return data
         
     except requests.exceptions.Timeout:
@@ -60,6 +66,15 @@ def get_exchange_rates_df(config_file_name):
         # Validate API response and extract data
         data = validate_api_status(response, config["api"]["error_messages"])
         
+        # Get Last and Next update time from API response
+        api_last_update_unix = data.get("time_last_update_unix")
+        api_next_update_unix = data.get("time_next_update_unix")
+
+        last_update_datetime = datetime.fromtimestamp(api_last_update_unix, tz=timezone.utc) + timedelta(hours=7)
+        next_update_datetime = datetime.fromtimestamp(api_next_update_unix, tz=timezone.utc) + timedelta(hours=7)
+
+        log.info(f"API Last Update Time (UTC+7): {last_update_datetime}, API Next Update Time (UTC+7): {next_update_datetime}")
+
         # Create DataFrame from conversion rates and load to PostgreSQL
         df = pd.DataFrame(list(data["conversion_rates"].items()), columns=["Currency", "Rate"])
         load_df_to_postgres(
@@ -68,7 +83,9 @@ def get_exchange_rates_df(config_file_name):
             schema=db_config["target"]["schema"], 
             table_name=db_config["target"]["table"]
         )
-        return len(df) 
+        log.info(f"Loaded {len(df)} exchange rates to PostgreSQL table '{db_config['target']['table']}' in schema '{db_config['target']['schema']}'.")
+        log.info("Sample data:")
+        log.info(df.head(10))
         
     except requests.exceptions.Timeout:
         raise RuntimeError("API Request timed out")
