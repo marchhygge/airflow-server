@@ -14,7 +14,7 @@ def check_exist_table(pg_hook, schema, table_name):
     """
         Check if a table exists in the database.
         
-        agrs:
+        args:
             pg_hook: PostgreSQL hook connection
             table_name: Name of the table to check
 
@@ -47,7 +47,7 @@ def get_max_date(pg_hook, schema, table_name):
     """
         Get the maximum date from a date column in the specified table.
         
-        agrs:
+        args:
             pg_hook: PostgreSQL hook connection
             table_name: Name of the table to query
         returns:
@@ -69,7 +69,7 @@ def check_data_available(pg_hook, sql):
     """
         Check if data is available for the given SQL query.
         
-        agrs:
+        args:
             pg_hook: PostgreSQL hook connection
             sql: SQL query to check for data availability
         returns:
@@ -93,7 +93,7 @@ def check_data_available(pg_hook, sql):
 def render_template(raw_sql, **kwargs):
     """
         Render a SQL template with provided parameters.
-        agrs:
+        args:
             raw_sql: Raw SQL string with Jinja2 templates
             kwargs: parameters for template rendering
         returns:
@@ -110,15 +110,27 @@ def render_template(raw_sql, **kwargs):
             log.info("SQL query rendered successfully")
             log.info(f"Rendered SQL: {result}")
         return result
+    
+    # Handle specific Jinja2 template syntax errors 
+    except jinja2.exceptions.TemplateSyntaxError as e:
+        log.error(f"Invalid Jinja2 template syntax at line {e.lineno}: {str(e)}")
+        raise
+
+    # Handle missing variables in template rendering
+    except ValueError as e:
+        log.error(f"Validation error: {str(e)}")
+        raise
+
+    # Handle any other unexpected exceptions during template rendering
     except Exception as e:
-        log.error(f"Error rendering SQL template: {str(e)}")
-        raise  
+        log.error(f"Unexpected error rendering SQL template: {str(e)}")
+        raise
 
 # excute function
 def execute_sql(pg_hook, sql):
     """
         Execute a SQL command.
-        agrs:
+        args:
             pg_hook: PostgreSQL hook connection
             sql: SQL command to execute
         returns:
@@ -127,8 +139,6 @@ def execute_sql(pg_hook, sql):
             ValueError: If inputs are invalid
     """
     try:
-        log.info("Validating inputs for SQL execution...")
-        validate_sql(sql)
         log.info("Executing SQL query...")
         pg_hook.run(sql)
         log.info("SQL executed successfully.")

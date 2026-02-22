@@ -3,6 +3,7 @@ from pathlib import Path
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 from dateutil.relativedelta import relativedelta
+from plugins.services.api_services import load_config
 from services.sql_services import (
     check_exist_table,
     check_data_available,
@@ -17,7 +18,9 @@ from services.backfill_services import (
 )
 from services.validate_services import (
     validate_logic_date,
-    validate_convert_datetime
+    validate_convert_datetime,
+    validate_pg,
+    validate_sql
 )
 # logging configuration
 log = logging.getLogger(__name__)
@@ -36,9 +39,8 @@ def run_backfill(config_file_name):
     """
     try:
         # 1. Load config
-        config_path = str(Path(CONTEXTS_DIR) / config_file_name)
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
+        log.info(f"1. Loading config from {config_file_name}...")
+        config = load_config(config_file_name)
 
         # Extract parameters by keywords
         raw_sql_template = config['query']['sql']
@@ -60,6 +62,9 @@ def run_backfill(config_file_name):
                 end_date = v
         log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, end_date={end_date}")
 
+        # 2. Validate inputs
+        log.info("2. Validating input parameters...")
+
         # Validate & Convert datetime
         start_date = validate_convert_datetime(start_date)
         end_date = validate_convert_datetime(end_date)
@@ -67,10 +72,16 @@ def run_backfill(config_file_name):
         # Validate logic date
         validate_logic_date(start_date, end_date)
 
-        # 2. Init Postgres hook
-        pg_hook = PostgresHook(postgres_conn_id=conn_id)
+        # Validate SQl
+        validate_sql(raw_sql_template)
 
-        # 3. Check table & get max_date to compare with end_date (if table exists)
+        # 3. Init Postgres hook
+        log.info("3. Initializing PostgreSQL connection...")
+        pg_hook = PostgresHook(postgres_conn_id=conn_id)
+        validate_pg(pg_hook)
+
+        # 4. Check table & get max_date to compare with end_date (if table exists)
+        log.info("4. Checking table existance and getting max date")
         is_exist = check_exist_table(pg_hook, schema, table)
         if is_exist:
             max_date = get_max_date(pg_hook, schema, table)
@@ -80,11 +91,13 @@ def run_backfill(config_file_name):
                     log.info(f"Table {schema}.{table} is already up to date with max_date={max_date:%Y-%m-%d}, skipping backfill")
                     return
 
-        # 4. Resolve SQL & start date
+        # 5. Resolve SQL & start date
+        log.info("5. Resolving SQL template and start date for backfill...")
         process_sql = resolve_raw_sql(config, is_exist)
         start_date_dt = resolve_start_date_dt(pg_hook, schema, table, start_date, is_exist)
 
-        # 5. Backfill loop (Check data availability and execute SQL month by month)
+        # 6. Backfill loop (Check data availability and execute SQL month by month)
+        log.info("6. Starting backfill")
         max_run = 24
         current_run = 0
         execute = False
