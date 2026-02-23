@@ -1,5 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.operators.empty import EmptyOperator
 from datetime import datetime
 from functools import partial
 from services.backfill_orchestration import run_backfill
@@ -70,8 +71,8 @@ with DAG(
     )
 
     # create start and end dummy tasks for better visualization
-    start = PythonOperator(task_id="start")
+    start = EmptyOperator(task_id="start")
 
-    end = PythonOperator(task_id="end")
+    end = EmptyOperator(task_id="end")
 
     start >> [fact_order, fact_order_item, fact_payment, fact_order_review, dim_customer, dim_product, dim_order_review, dim_seller] >> end
