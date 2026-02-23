@@ -10,7 +10,6 @@ from services.api_services import (
 )
 
 # log configuration
-
 log = logging.getLogger(__name__)
 
 def get_quota_info(config_file_name):
