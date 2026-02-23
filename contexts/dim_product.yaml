@@ -1,0 +1,28 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: centralize
+    table: dim_product_test
+    # start_date and end_date for filter backfill logic.
+    # Note: Not for sql in this context.
+    start_date: 2016-09-04
+    end_date: 2018-10-17
+
+query:
+  function: 
+    create: create table if not exists {{ schema }}.{{ table }} as
+    insert: insert into {{ schema }}.{{ table }}
+  sql: |
+    select ors.review_id 
+         , ors.order_id
+         , ors.review_comment_title
+         , ors.review_comment_message
+         , ors.review_creation_date
+         , ors.review_answer_timestamp
+    from public.order_reviews ors
+    where ors.order_id in (
+      select o.order_id
+      from public.orders o
+      where date(o.order_purchase_timestamp) >='{{start_date}}'	
+        and date(o.order_purchase_timestamp) < '{{end_date}}'
+    )

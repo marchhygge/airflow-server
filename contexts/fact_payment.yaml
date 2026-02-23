@@ -2,7 +2,7 @@ postgres:
   conn_id: supermarket
   target:
     schema: centralize
-    table: fact_order
+    table: fact_payment_test
     # start_date and end_date for filter backfill logic.
     # Note: Not for sql in this context.
     start_date: 2016-09-04
@@ -13,19 +13,15 @@ query:
     create: create table if not exists {{ schema }}.{{ table }} as
     insert: insert into {{ schema }}.{{ table }}
   sql: |
-    select o.order_id
-         , o.customer_id
+    select p.order_id
+         , p.payment_sequential
+         , p.payment_type
+         , p.payment_installments
          , date(o.order_purchase_timestamp) as order_date
-         , o.order_status
-         , sum(p.payment_value) as total_payment
-         , count(distinct oi.order_item_id) as total_items
-         , sum(oi.price) as total_price
-         , sum(oi.freight_value) as total_freight_value
-    from public.orders o
-    left join public.order_payments p
-          on o.order_id = p.order_id
-    left join public.order_items oi
-          on o.order_id = oi.order_id
+         , sum(p.payment_value) as total_payment_value
+    from public.order_payments p
+    left join public.orders o
+          on p.order_id = o.order_id
     where date(o.order_purchase_timestamp) >= '{{start_date}}'
       and date(o.order_purchase_timestamp) < '{{end_date}}'
-    group by 1,2,3,4
+    group by 1,2,3,4,5

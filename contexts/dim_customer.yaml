@@ -1,0 +1,31 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: centralize
+    table: dim_customer_test
+    # start_date and end_date for filter backfill logic.
+    # Note: Not for sql in this context.
+    start_date: 2016-09-04
+    end_date: 2018-10-17
+
+query:
+  function: 
+    create: create table if not exists {{ schema }}.{{ table }} as
+    insert: insert into {{ schema }}.{{ table }}
+  sql: |
+    select distinct c.customer_id
+         , c.customer_unique_id
+         , c.customer_zip_code_prefix
+         , c.customer_city
+         , c.customer_state
+         , g.geolocation_lat as latitude
+         , g.geolocation_lng as longitude
+    from public.customers c
+    left join public.geolocation g 
+        on c.customer_zip_code_prefix = g.geolocation_zip_code_prefix
+    where c.customer_id in (
+      select customer_id 
+      from public.orders o
+      where date(o.order_purchase_timestamp) >= '{{start_date}}'
+      and date(o.order_purchase_timestamp) < '{{end_date}}'
+    )
