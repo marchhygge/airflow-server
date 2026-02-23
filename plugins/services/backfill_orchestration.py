@@ -3,7 +3,7 @@ from pathlib import Path
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 from dateutil.relativedelta import relativedelta
-from plugins.services.api_services import load_config
+from services.api_services import load_config
 from services.sql_services import (
     check_exist_table,
     check_data_available,
