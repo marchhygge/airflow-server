@@ -70,9 +70,16 @@ with DAG(
         depends_on_past=True,  
     )
 
+    # dim_user
+    dim_user = PythonOperator(
+        task_id="dim_user",
+        python_callable=partial(run_backfill, config_file_name="centralize/dim_user.yaml"),
+        depends_on_past=True,  
+    )
+
     # create start and end dummy tasks for better visualization
     start = EmptyOperator(task_id="start")
 
     end = EmptyOperator(task_id="end")
 
-    start >> [fact_order, fact_order_item, fact_payment, fact_order_review, dim_customer, dim_product, dim_order_review, dim_seller] >> end
+    start >> [fact_order, fact_order_item, fact_payment, fact_order_review, dim_customer, dim_product, dim_order_review, dim_seller, dim_user] >> end
