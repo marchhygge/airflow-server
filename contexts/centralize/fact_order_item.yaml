@@ -1,0 +1,27 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: centralize
+    table: fact_order_item_test
+    # start_date and end_date for filter backfill logic.
+    # Note: Not for sql in this context.
+    start_date: 2016-09-04
+    end_date: 2018-10-17
+
+query:
+  function: 
+    create: create table if not exists {{ schema }}.{{ table }} as
+    insert: insert into {{ schema }}.{{ table }}
+  sql: |
+    select oi.order_id
+        , oi.order_item_id
+        , oi.product_id
+        , oi.seller_id
+        , date(o.order_purchase_timestamp) as order_date
+        , sum(oi.price) as total_price
+        , sum(oi.freight_value) as total_freight_value
+    from public.order_items oi
+    left join public.orders o on oi.order_id = o.order_id
+    where date(o.order_purchase_timestamp) >= '{{start_date}}'
+      and date(o.order_purchase_timestamp) < '{{end_date}}'
+    group by 1,2,3,4,5

@@ -79,4 +79,3 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id, schema, table_name):
         method="multi", # Use multi-row insert for better performance
         chunksize=1000 # Insert 1000 rows at a time
     )
-    print(f"DataFrame loaded successfully to PostgreSQL table '{table_name}' in schema '{schema}'.")

@@ -1,0 +1,27 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: centralize
+    table: fact_payment_test
+    # start_date and end_date for filter backfill logic.
+    # Note: Not for sql in this context.
+    start_date: 2016-09-04
+    end_date: 2018-10-17
+
+query:
+  function: 
+    create: create table if not exists {{ schema }}.{{ table }} as
+    insert: insert into {{ schema }}.{{ table }}
+  sql: |
+    select p.order_id
+         , p.payment_sequential
+         , p.payment_type
+         , p.payment_installments
+         , date(o.order_purchase_timestamp) as order_date
+         , sum(p.payment_value) as total_payment_value
+    from public.order_payments p
+    left join public.orders o
+          on p.order_id = o.order_id
+    where date(o.order_purchase_timestamp) >= '{{start_date}}'
+      and date(o.order_purchase_timestamp) < '{{end_date}}'
+    group by 1,2,3,4,5

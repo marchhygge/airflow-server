@@ -22,7 +22,7 @@ def validate_identifier(name, label="identifier"):
 # Validate logic date
 def validate_logic_date(start_date, end_date):
     if start_date >= end_date:
-        raise ValueError("start_date must be before end_date")
+        raise ValueError("start_date must be before end_date. Check yaml config.")
 
 # Validate and convert datetime
 def validate_convert_datetime(value):
