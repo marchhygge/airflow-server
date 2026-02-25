@@ -16,16 +16,15 @@ def resolve_raw_sql(config, is_exist):
     return config['query']['function']['insert'] + '\n' + config['query']['sql']
 
 # Resolve start date for backfill
-def resolve_start_date_dt(pg_hook, schema, table, default_date, is_exist):
+def resolve_start_date_dt(max_date, default_date, is_exist):
     """
     Decide backfill start month
     """
     if not is_exist:
         return default_date
-
-    max_date = get_max_date(pg_hook, schema, table)
-    if not max_date:
-        raise ValueError(f"Table {schema}.{table} exists but max_date is NULL")
+    
+    if max_date is None:
+        return default_date
 
     if not isinstance(max_date, datetime):
         max_date = datetime.combine(max_date, datetime.min.time())

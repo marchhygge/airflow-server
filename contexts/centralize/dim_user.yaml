@@ -3,9 +3,10 @@ postgres:
   target:
     schema: centralize
     table: dim_user_test
-    # start_date and end_date for filter backfill logic.
+    based_on: fact_order # add based_on for dim table.
+    date_column: order_date
     # Note: Not for sql in this context.
-    start_date: 2016-09-04
+    start_date: 2016-09-04 # start_date and end_date for filter backfill logic.
     end_date: 2018-10-17
 
 query:
