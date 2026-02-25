@@ -16,25 +16,53 @@ def resolve_raw_sql(config, is_exist):
     return config['query']['function']['insert'] + '\n' + config['query']['sql']
 
 # Resolve start date for backfill
-def resolve_start_date_dt(max_date, default_date, is_exist):
+def resolve_start_date_dt(table_name, max_date, default_date, is_exist):
     """
-    Decide backfill start month
+    input:
+    - table_name: name of the target table from yaml config
+    - max_date:  from services.sql_services.get_max_date function
+    - default_date: the default start date from yaml config
+    - is_exist: from services.sql_services.check_exist_table function
+
+    Process:
+    - If table NOT exist: use default_date
+    - If table exist but max_date is None: use default_date
+    - If table exist and max_date exists:
+      - For fact table: max_date + 1 month (next month after last data)
+      - For dim table: max_date (same month as fact table)
+
+    Output:
+    - final_date: the resolved start date for backfill process
     """
-    if not is_exist:
-        return default_date
-    
-    if max_date is None:
+    # If table does not exist or max_date is None, start from default_date
+    if not is_exist or max_date is None:
         return default_date
 
+    # Convert max_date to datetime
     if not isinstance(max_date, datetime):
         max_date = datetime.combine(max_date, datetime.min.time())
 
-    return max_date + relativedelta(months=1)
+    if table_name.lower().startswith("fact_"):
+        return max_date + relativedelta(months=1)
+    else:
+        return max_date
 
 # Build SQL for a single backfill month
 def build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template):
     """
-    Render SQL for a single backfill month
+    Input:
+    - raw_sql: query from yaml config
+    - schema: schema name from yaml config
+    - table: table name from yaml config
+    - start_date_dt: the start date for this backfill iteration (datetime object)
+    - render_template: function to render SQL with parameters
+
+    Process:
+    - Calculate end_date_dt as start_date_dt + 1 month
+    - Render the SQL template with schema, table, start_date, and end_date
+
+    Output:
+    - rendered_sql: the final SQL string ready for execution
     """
     end_date_dt = start_date_dt + relativedelta(months=1)
 
