@@ -4,7 +4,7 @@ postgres:
     schema: centralize
     table: dim_user_test
     based_on: fact_order # add based_on for dim table.
-    date_column: order_date
+    date_column: order_date # getting max date from this column for backfill logic.
     # Note: Not for sql in this context.
     start_date: 2016-09-04 # start_date and end_date for filter backfill logic.
     end_date: 2018-10-17

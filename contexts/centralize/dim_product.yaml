@@ -3,6 +3,8 @@ postgres:
   target:
     schema: centralize
     table: dim_product_test
+    based_on: fact_order # add based_on for dim table.
+    date_column: order_date # getting max date from this column for backfill logic.
     # start_date and end_date for filter backfill logic.
     # Note: Not for sql in this context.
     start_date: 2016-09-04
@@ -13,16 +15,18 @@ query:
     create: create table if not exists {{ schema }}.{{ table }} as
     insert: insert into {{ schema }}.{{ table }}
   sql: |
-    select ors.review_id 
-         , ors.order_id
-         , ors.review_comment_title
-         , ors.review_comment_message
-         , ors.review_creation_date
-         , ors.review_answer_timestamp
-    from public.order_reviews ors
-    where ors.order_id in (
-      select o.order_id
+    select distinct p.product_id
+         , p.product_category_name as category_name
+         , p.product_weight_g as weight_g
+         , p.product_length_cm as length_cm
+         , p.product_height_cm as height_cm
+         , p.product_width_cm as width_cm
+    from public.products p 
+    where p.product_id in (
+      select product_id 
       from public.orders o
-      where date(o.order_purchase_timestamp) >='{{start_date}}'	
+      left join public.order_items oi on o.order_id = oi.order_id
+      where date(o.order_purchase_timestamp) >= '{{start_date}}'
         and date(o.order_purchase_timestamp) < '{{end_date}}'
+        and product_id is not null
     )
