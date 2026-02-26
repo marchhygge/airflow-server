@@ -74,4 +74,5 @@ with DAG(
     start = EmptyOperator(task_id="start")
     end = EmptyOperator(task_id="end")
 
-    start >> [fact_order, fact_order_item, fact_payment, fact_order_review] >> [dim_customer, dim_product, dim_order_review, dim_user] >> end
+    start >> [fact_order, fact_order_item, fact_payment, fact_order_review] 
+    fact_order >> [dim_customer, dim_product, dim_order_review, dim_user] >> end
