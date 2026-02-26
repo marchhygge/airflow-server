@@ -2,7 +2,7 @@
 Docstring for services.sql_service
 This file contains utility functions for SQL database operations.
 """
-
+import jinja2
 from jinja2 import Template
 from services.validate_services import *
 import logging
@@ -25,8 +25,6 @@ def check_exist_table(pg_hook, schema, table_name):
             ValueError: If inputs are invalid
     """
     try:
-        log.info("Validating inputs for table existence check...")
-        validate_identifier(table_name, "table_name")
         log.info(f"Checking existence of table '{schema}.{table_name}'...")
         query = """
             SELECT EXISTS (
@@ -43,32 +41,45 @@ def check_exist_table(pg_hook, schema, table_name):
         raise
 
 # Get max date
-def get_max_date(pg_hook, schema, table_name):
+def get_max_date(pg_hook, schema, table_name, based_on_table, date_column):
     """
         Get the maximum date from a date column in the specified table.
         
         args:
             pg_hook: PostgreSQL hook connection
             table_name: Name of the table to query
+            based_on_table: Name of the table that defines the date column to use
+            date_column: Name of the date column to get max value from
         returns:
             datetime: Maximum date found in the table
         raises:
             ValueError: If inputs are invalid
     """
     try:
-        log.info(f"getting max date from table '{schema}.{table_name}'...")
-        sql = f"SELECT MAX(report_date) FROM {schema}.{table_name};"
+        log.info(f"getting max {date_column} from table '{schema}.{table_name}'...")
+
+        if table_name.lower().startswith("fact"):
+            table = table_name
+        elif table_name.lower().startswith("dim"):
+            if based_on_table == None:
+                raise ValueError(f"It's a dim table, but no based_on_table provided, add based_on: table_name in target config to specify the table to get max {date_column}.")
+            table = based_on_table
+            log.info(f"Dim table detected. Using based_on_table '{table}' to get max {date_column}...")
+        else:
+            raise ValueError(f"Invalid table name '{table_name}'. Table name should start with 'fact' or 'dim'.")
+            
+        sql = f"SELECT MAX({date_column}) FROM {schema}.{table};"
         result = pg_hook.get_first(sql)
         return result[0] if result else None
+    
     except Exception as e:
-        log.error(f"Error getting max date from table '{table_name}': {str(e)}")
+        log.error(f"Error getting max {date_column} from table '{table}': {str(e)}")
         raise
 
 # Check data available
 def check_data_available(pg_hook, sql):
     """
         Check if data is available for the given SQL query.
-        
         args:
             pg_hook: PostgreSQL hook connection
             sql: SQL query to check for data availability
@@ -111,12 +122,12 @@ def render_template(raw_sql, **kwargs):
             log.info(f"Rendered SQL: {result}")
         return result
     
-    # Handle specific Jinja2 template syntax errors 
+    # Handle specific Jinja2 template syntax errors (ex: missing closing tag, undefined variables, etc.)
     except jinja2.exceptions.TemplateSyntaxError as e:
         log.error(f"Invalid Jinja2 template syntax at line {e.lineno}: {str(e)}")
         raise
 
-    # Handle missing variables in template rendering
+    # Handle missing variables in template rendering (ex: if raw_sql contains {{schema}} but it's not provided in kwargs)
     except ValueError as e:
         log.error(f"Validation error: {str(e)}")
         raise

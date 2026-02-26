@@ -17,6 +17,8 @@ from services.backfill_services import (
     build_sql_for_month
 )
 from services.validate_services import (
+    validate_backfill_config,
+    validate_identifier,
     validate_logic_date,
     validate_convert_datetime,
     validate_pg,
@@ -42,49 +44,67 @@ def run_backfill(config_file_name):
         log.info(f"1. Loading config from {config_file_name}...")
         config = load_config(config_file_name)
 
+        # validate config structure and content before processing
+        validate_backfill_config(config)
+
         # Extract parameters by keywords
         raw_sql_template = config['query']['sql']
+        validate_sql(raw_sql_template)
+
+        # Flatten configuration
         config_dict = {**config["postgres"], **config["postgres"]["target"]}
 
-        conn_id = schema = table = date = None
+        conn_id = schema = table = start_date = end_date = based_on = None
         for k, v in config_dict.items():
             if isinstance(v, dict):
                 continue
             if "con" in k.lower():
                 conn_id = v
+                validate_identifier(conn_id, "conn_id")
             elif "schema" in k.lower():
                 schema = v
+                validate_identifier(schema, "schema")
             elif "table" in k.lower():
                 table = v
+                validate_identifier(table, "table")
             elif "start_date" in k.lower():
                 start_date = v
+                validate_identifier(start_date, "start_date")
             elif "end_date" in k.lower():
                 end_date = v
-        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, end_date={end_date}")
+                validate_identifier(end_date, "end_date")
+            elif "based_on" in k.lower():
+                based_on = v
+                if based_on:
+                    validate_identifier(based_on, "based_on_table")
+            elif "date_column" in k.lower():
+                date_column = v
+                validate_identifier(date_column, "date_column")
+        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, end_date={end_date}, date_column={date_column}")
 
         # 2. Validate inputs
         log.info("2. Validating input parameters...")
-
-        # Validate & Convert datetime
+        
+        # Validate and convert date inputs to datetime objects
         start_date = validate_convert_datetime(start_date)
         end_date = validate_convert_datetime(end_date)
 
         # Validate logic date
         validate_logic_date(start_date, end_date)
 
-        # Validate SQl
-        validate_sql(raw_sql_template)
-
         # 3. Init Postgres hook
         log.info("3. Initializing PostgreSQL connection...")
         pg_hook = PostgresHook(postgres_conn_id=conn_id)
+
+        # Validate pg_hook
         validate_pg(pg_hook)
 
         # 4. Check table & get max_date to compare with end_date (if table exists)
         log.info("4. Checking table existance and getting max date")
         is_exist = check_exist_table(pg_hook, schema, table)
+        max_date = None
         if is_exist:
-            max_date = get_max_date(pg_hook, schema, table)
+            max_date = get_max_date(pg_hook, schema, table, based_on, date_column)
             if max_date:
                 max_date = validate_convert_datetime(max_date) 
                 if max_date >= end_date:
@@ -94,7 +114,7 @@ def run_backfill(config_file_name):
         # 5. Resolve SQL & start date
         log.info("5. Resolving SQL template and start date for backfill...")
         process_sql = resolve_raw_sql(config, is_exist)
-        start_date_dt = resolve_start_date_dt(pg_hook, schema, table, start_date, is_exist)
+        start_date_dt = resolve_start_date_dt(table, max_date, start_date, is_exist)
 
         # 6. Backfill loop (Check data availability and execute SQL month by month)
         log.info("6. Starting backfill")
