@@ -69,10 +69,10 @@ def run_backfill(config_file_name):
                 validate_identifier(table, "table")
             elif "start_date" in k.lower():
                 start_date = v
-                validate_convert_datetime(start_date, "start_date")
+                validate_convert_datetime(start_date)
             elif "end_date" in k.lower():
                 end_date = v
-                validate_convert_datetime(end_date, "end_date")
+                validate_convert_datetime(end_date)
             elif "based_on" in k.lower():
                 based_on = v
                 if based_on:
