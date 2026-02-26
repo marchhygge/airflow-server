@@ -119,7 +119,7 @@ def validate_convert_datetime(value):
     
     if isinstance(value, str):
         try:
-            return datetime.strptime(value, "%Y-%m-%d")
+            return datetime.combine(value, datetime.min.time())
         except Exception as e:
             raise ValueError(f"Invalid date string: {value}. Error: {str(e)}")
     raise ValueError(f"Unsupported date type: {type(value)}. Must be datetime, date, or string in YYYY-MM-DD format.")
