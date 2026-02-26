@@ -21,7 +21,6 @@ query:
          , sum(p.payment_value) as total_payment
          , count(distinct oi.order_item_id) as total_items
          , sum(oi.price) as total_price
-         , sum(oi.freight_value) as total_freight_value
     from public.orders o
     left join public.order_payments p
           on o.order_id = p.order_id
