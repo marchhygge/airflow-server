@@ -69,10 +69,10 @@ def run_backfill(config_file_name):
                 validate_identifier(table, "table")
             elif "start_date" in k.lower():
                 start_date = v
-                validate_identifier(start_date, "start_date")
+                validate_convert_datetime(start_date, "start_date")
             elif "end_date" in k.lower():
                 end_date = v
-                validate_identifier(end_date, "end_date")
+                validate_convert_datetime(end_date, "end_date")
             elif "based_on" in k.lower():
                 based_on = v
                 if based_on:
@@ -84,10 +84,6 @@ def run_backfill(config_file_name):
 
         # 2. Validate inputs
         log.info("2. Validating input parameters...")
-        
-        # Validate and convert date inputs to datetime objects
-        start_date = validate_convert_datetime(start_date)
-        end_date = validate_convert_datetime(end_date)
 
         # Validate logic date
         validate_logic_date(start_date, end_date)
