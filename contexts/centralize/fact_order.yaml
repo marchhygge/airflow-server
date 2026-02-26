@@ -14,18 +14,46 @@ query:
     create: create table if not exists {{ schema }}.{{ table }} as
     insert: insert into {{ schema }}.{{ table }}
   sql: |
-    select o.order_id
-         , o.customer_id
-         , date(o.order_purchase_timestamp) as order_date
-         , o.order_status
-         , sum(p.payment_value) as total_payment
-         , count(distinct oi.order_item_id) as total_items
-         , sum(oi.price) as total_price
-    from public.orders o
-    left join public.order_payments p
-          on o.order_id = p.order_id
-    left join public.order_items oi
-          on o.order_id = oi.order_id
-    where date(o.order_purchase_timestamp) >= '{{start_date}}'
-      and date(o.order_purchase_timestamp) < '{{end_date}}'
-    group by 1,2,3,4
+    with filtered_orders as (
+      select
+          order_id,
+          customer_id,
+          date(order_purchase_timestamp) as order_date,
+          order_status
+      from public.orders
+      where order_purchase_timestamp >= '{{start_date}}'
+        and order_purchase_timestamp <  '{{end_date}}'
+    ),
+    payment_agg as (
+        select
+            op.order_id,
+            sum(op.payment_value) as total_payment
+        from public.order_payments op
+        left join filtered_orders fo
+            on fo.order_id = op.order_id
+        group by 1
+        having sum(op.payment_value) > 0
+    ),
+    item_agg as (
+        select
+            oi.order_id,
+            count(oi.order_item_id) as total_items,
+            sum(oi.price) as total_price
+        from public.order_items oi
+        left join filtered_orders fo
+            on fo.order_id = oi.order_id
+        group by 1
+    )
+    select
+        fo.order_id,
+        fo.customer_id,
+        fo.order_date,
+        fo.order_status,
+        p.total_payment,
+        i.total_items,
+        i.total_price
+    from filtered_orders fo
+    left join payment_agg p
+          on fo.order_id = p.order_id
+    left join item_agg i
+          on fo.order_id = i.order_id
