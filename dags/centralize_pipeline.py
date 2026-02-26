@@ -42,13 +42,6 @@ with DAG(
         depends_on_past=True, 
     )
 
-    # dim_customer
-    dim_customer = PythonOperator(
-        task_id="dim_customer",
-        python_callable=partial(run_backfill, config_file_name="centralize/dim_customer.yaml"),
-        depends_on_past=True,  
-    )
-
     # dim_product
     dim_product = PythonOperator(
         task_id="dim_product",
@@ -75,4 +68,4 @@ with DAG(
     end = EmptyOperator(task_id="end")
 
     start >> [fact_order, fact_order_item, fact_payment, fact_order_review] 
-    fact_order >> [dim_customer, dim_product, dim_order_review, dim_user] >> end
+    fact_order >> [dim_product, dim_order_review, dim_user] >> end
