@@ -32,7 +32,6 @@ query:
         left join filtered_orders fo
             on fo.order_id = op.order_id
         group by 1
-        having sum(op.payment_value) > 0
     ),
     item_agg as (
         select
