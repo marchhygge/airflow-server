@@ -2,7 +2,7 @@ postgres:
   conn_id: supermarket
   target:
     schema: centralize
-    table: fact_payment_test
+    table: fact_payment
     date_column: order_date # getting max date from this column for backfill logic.
     # start_date and end_date for filter backfill logic.
     # Note: Not for sql in this context.

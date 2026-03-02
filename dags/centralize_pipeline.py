@@ -7,7 +7,7 @@ from services.backfill_orchestration import run_backfill
 
 with DAG(
     dag_id="centralize_pipeline_backfill",
-    start_date=datetime(2026, 2, 22, 9, 0),
+    start_date=datetime(2026, 3, 1, 9, 0),
     schedule="@daily",
     catchup=True,
     max_active_runs=1,
