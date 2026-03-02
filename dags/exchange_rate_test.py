@@ -9,7 +9,7 @@ from services.exchange_rate_orchestration import (
 
 with DAG(
     dag_id="exchange_rate_test",
-    start_date= datetime(2026, 2, 21, 10, 0),
+    start_date= datetime(2026, 3, 1, 10, 0),
     schedule="@daily",
     catchup=False, # Set to False to avoid backfilling when the DAG is first deployed
     max_active_runs=1, 
