@@ -69,12 +69,21 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id, schema, table_name):
     if engine is None:
         raise ValueError(f"Failed to get SQLAlchemy engine from PostgresHook with connection ID '{conn_id}'")
 
-    # 3. Load DataFrame to PostgreSQL
+    # 3. Truncate table if exists (to avoid breaking dependent views/materialized views)
+    with engine.connect() as conn:
+        try:
+            conn.execute(f"TRUNCATE TABLE {schema}.{table_name}")
+            conn.commit()
+        except Exception:
+            # Table doesn't exist yet, will be created below
+            pass
+
+    # 4. Load DataFrame to PostgreSQL
     dataframe.to_sql(
         name=table_name,
         con=engine,
         schema=schema,
-        if_exists="truncate", # Replace existing data in the table with new data
+        if_exists="append", # Append data to existing table structure
         index=False, # Do not write DataFrame index as a column in the database
         method="multi", # Use multi-row insert for better performance
         chunksize=1000 # Insert 1000 rows at a time
