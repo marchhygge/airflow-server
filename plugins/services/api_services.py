@@ -74,7 +74,7 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id, schema, table_name):
         name=table_name,
         con=engine,
         schema=schema,
-        if_exists="replace", # Replace the table if it already exists
+        if_exists="truncate", # Replace existing data in the table with new data
         index=False, # Do not write DataFrame index as a column in the database
         method="multi", # Use multi-row insert for better performance
         chunksize=1000 # Insert 1000 rows at a time
