@@ -22,8 +22,8 @@ with DAG(
 
     task = PythonOperator(
         task_id="print_date",
-        python_callable=my_task,
-        depend_on_past=True,
-)
+        python_callable=my_task,        
+        depends_on_past=True,
+    )
 
-start >> task >> end
+    start >> task >> end
