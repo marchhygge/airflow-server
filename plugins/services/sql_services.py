@@ -119,7 +119,6 @@ def render_template(raw_sql, **kwargs):
             raise ValueError("Rendered SQL is empty")
         else:
             log.info("SQL query rendered successfully")
-            log.info(f"Rendered SQL: {result}")
         return result
     
     # Handle specific Jinja2 template syntax errors (ex: missing closing tag, undefined variables, etc.)
