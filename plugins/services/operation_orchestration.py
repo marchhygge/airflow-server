@@ -21,7 +21,6 @@ CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 def run_operation(config_file_name, **context):
 
     try:
-        validate_identifier(config_file_name, "config_file_name")
         execution_date = get_execution_date(**context)
         execution_date = validate_convert_datetime(execution_date)
 
