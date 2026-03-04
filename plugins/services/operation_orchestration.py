@@ -1,5 +1,6 @@
 import logging
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from services.dag_services import get_execution_date
 from services.backfill_services import build_sql_for_day, resolve_raw_sql
 from services.sql_services import check_exist_table, render_template
 from services.api_services import load_config
@@ -17,10 +18,11 @@ log = logging.getLogger(__name__)
 # Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
 CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
-def run_operation(config_file_name, execution_date):
+def run_operation(config_file_name, **context):
 
     try:
         validate_identifier(config_file_name, "config_file_name")
+        execution_date = get_execution_date(**context)
         execution_date = validate_convert_datetime(execution_date)
 
         # 1. Load config
