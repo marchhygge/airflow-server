@@ -100,7 +100,7 @@ def run_operation(config_file_name, **context):
         )
         
         # 5. Execute SQL
-        log.info(f"5. Executing SQL: {sql}")
+        log.info(f"5. Executing SQL:")
         pg_hook.run(sql)
     except Exception as e :
         log.error(f"Error during operation orchestration: {e}")
