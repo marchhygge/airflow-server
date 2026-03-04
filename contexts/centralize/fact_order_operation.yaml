@@ -1,0 +1,58 @@
+postgres:
+  conn_id: supermarket
+  target:
+    schema: centralize
+    table: fact_order_operation
+    date_column: order_date # getting max date from this column for backfill logic.
+    # start_date and end_date for filter backfill logic.
+    # Note: Not for sql in this context.
+    start_date: 2016-09-04
+    end_date: 2018-10-17
+
+query:
+  function: 
+    create: create table if not exists {{ schema }}.{{ table }} as
+    insert: insert into {{ schema }}.{{ table }}
+  sql: |
+    with filtered_orders as (
+      select
+          order_id,
+          customer_id,
+          date(order_purchase_timestamp) as order_date,
+          order_status
+      from public.orders
+      where order_purchase_timestamp >= '{{start_date}}'
+        and order_purchase_timestamp <  '{{end_date}}'
+    ),
+    payment_agg as (
+        select
+            op.order_id,
+            sum(op.payment_value) as total_payment
+        from public.order_payments op
+        left join filtered_orders fo
+            on fo.order_id = op.order_id
+        group by 1
+    ),
+    item_agg as (
+        select
+            oi.order_id,
+            count(oi.order_item_id) as total_items,
+            sum(oi.price) as total_price
+        from public.order_items oi
+        left join filtered_orders fo
+            on fo.order_id = oi.order_id
+        group by 1
+    )
+    select
+        fo.order_id,
+        fo.customer_id,
+        fo.order_date,
+        fo.order_status,
+        p.total_payment,
+        i.total_items,
+        i.total_price
+    from filtered_orders fo
+    left join payment_agg p
+          on fo.order_id = p.order_id
+    left join item_agg i
+          on fo.order_id = i.order_id

@@ -8,7 +8,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def validate_backfill_config(config):
+def validate_config(config):
     """
     Validate the structure and content of the configuration dictionary.
     Args:

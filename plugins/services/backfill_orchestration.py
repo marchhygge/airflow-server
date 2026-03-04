@@ -17,7 +17,7 @@ from services.backfill_services import (
     build_sql_for_month
 )
 from services.validate_services import (
-    validate_backfill_config,
+    validate_config,
     validate_identifier,
     validate_logic_date,
     validate_convert_datetime,
@@ -45,7 +45,7 @@ def run_backfill(config_file_name):
         config = load_config(config_file_name)
 
         # validate config structure and content before processing
-        validate_backfill_config(config)
+        validate_config(config)
 
         # Extract parameters by keywords
         raw_sql_template = config['query']['sql']

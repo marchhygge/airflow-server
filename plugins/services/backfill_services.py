@@ -73,3 +73,31 @@ def build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template):
         start_date=start_date_dt.strftime("%Y-%m-01"),
         end_date=end_date_dt.strftime("%Y-%m-01")
     )
+
+# build SQL for a single day
+def build_sql_for_day(raw_sql, schema, table, process_date, render_template):
+    """
+    Input:
+    - raw_sql: query from yaml config
+    - schema: schema name from yaml config
+    - table: table name from yaml config
+    - process_date: the process date for this backfill iteration (datetime object)
+    - render_template: function to render SQL with parameters
+
+    Process:
+    - Calculate end_date_dt as process_date + 1 day
+    - Render the SQL template with schema, table, start_date, and end_date
+
+    Output:
+    - rendered_sql: the final SQL string ready for execution
+    """
+    end_date = process_date + relativedelta(days=1)
+
+    return render_template(
+        raw_sql,
+        schema=schema,
+        table=table,
+        start_date=process_date.strftime("%Y-%m-%d"),
+        end_date=end_date.strftime("%Y-%m-%d")
+    )
+    
