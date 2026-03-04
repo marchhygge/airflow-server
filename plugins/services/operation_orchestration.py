@@ -54,7 +54,7 @@ def run_operation(config_file_name, **context):
                 start_date = validate_convert_datetime(start_date)
             elif "end_date" in k.lower():
                 end_date = v
-                if not end_date.lower() == "none":
+                if end_date:
                     end_date = validate_convert_datetime(end_date)
                     # If end_date is provided, validate logic between start_date and end_date
                     validate_logic_date(start_date, end_date) 
