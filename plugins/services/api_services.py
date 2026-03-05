@@ -64,14 +64,10 @@ def get_api_key():
 def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, table_name: str):
     # 1. Init PostgresHook
     pg_hook = PostgresHook(postgres_conn_id=conn_id)
-    if pg_hook is None:
-        raise ValueError(f"Failed to initialize PostgresHook with connection ID '{conn_id}'")
-
+    
     # 2. Get SQLAlchemy engine from PostgresHook
     engine = pg_hook.get_sqlalchemy_engine()
-    if engine is None:
-        raise ValueError(f"Failed to get SQLAlchemy engine from PostgresHook with connection ID '{conn_id}'")
-
+    
     # 3. Truncate table if exists (to avoid breaking dependent views/materialized views)
     with engine.begin() as conn:
         try:
@@ -92,7 +88,7 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
         log.info(f"Loaded {len(dataframe)} rows into {schema}.{table_name}")
     
     # 4. Find denpendent materialized views and refresh them to ensure they reflect the latest data
-    query = f"""
+    query = """
         SELECT 
             mv_ns.nspname AS mv_schema,
             mv.relname AS materialized_view
@@ -108,11 +104,11 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
         JOIN pg_namespace tbl_ns 
             ON tbl.relnamespace = tbl_ns.oid
         WHERE mv.relkind = 'm'
-        AND tbl.relname = '{table_name}'
-        AND tbl_ns.nspname = '{schema}'
+        AND tbl.relname = :table_name
+        AND tbl_ns.nspname = :schema
         """
     try:
-        with engine.begin() as conn:
+        with engine.connect() as conn:
             result = conn.execute(
                 text(query), 
                 {'schema':schema, 'table_name':table_name}    
@@ -125,9 +121,10 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
                     mv_full = f"{row['mv_schema']}.{row['materialized_view']}"
                     log.info(f"Refreshing materialized view: {mv_full}")
                     conn.execute(text(f"REFRESH MATERIALIZED VIEW {mv_full}"))
+                    conn.commit()
                     log.info(f"Refreshed successfully: {mv_full}")
             else: 
                 log.info(f"No materialized views found that depend on {schema}.{table_name}")
             
     except Exception as e:
-        log.error(f"Failed to connect: {e}")
+        log.error(f"Failed to refresh materialized views for {schema}.{table_name}: {e}")
