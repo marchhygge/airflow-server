@@ -26,7 +26,8 @@ query:
           order_estimated_delivery_date,
           order_status
       from public.orders
-      where order_purchase_timestamp <=  '2017-01-31'
+      where date(order_purchase_timestamp) >= '{{start_date}}'
+      and date(order_purchase_timestamp) < '{{end_date}}'
     ),
     payment_agg as (
         select
