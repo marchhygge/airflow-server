@@ -8,7 +8,7 @@ from services.operation_orchestration import run_operation
 with DAG(
     dag_id="operation_centralize_pipeline",
     start_date=datetime(2016, 9, 3, 9, 0),
-    end_date=datetime(2018, 10, 17),
+    end_date=datetime(2016, 12, 31),
     schedule="@daily", # first run = start_date + 1 days
     catchup=True,
     max_active_runs=3,
