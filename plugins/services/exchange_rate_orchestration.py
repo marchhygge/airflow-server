@@ -84,6 +84,5 @@ def get_exchange_rates_df(config_file_name):
         log.info("API Information:" + "\n" + f"API Last Update Time (UTC+7): {last_update_datetime}" + "\n" + f"API Next Update Time (UTC+7): {next_update_datetime}")
         log.info(f"Loaded {len(df)} exchange rates to PostgreSQL table '{db_config['target']['table']}' in schema '{db_config['target']['schema']}'.")
         log.info("\n" + "Sample data:" + "\n" + df.head(10).to_markdown(index=False))
-        
     except requests.exceptions.Timeout:
         raise RuntimeError("API Request timed out")

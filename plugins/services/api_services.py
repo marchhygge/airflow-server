@@ -58,7 +58,7 @@ def get_api_key():
         raise ValueError("API key 'exchange_rate_api_key' not found in Airflow Variables.")
     return api_key
 
-def load_df_to_postgres(dataframe: pd.DataFrame, conn_id, schema, table_name):
+def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, table_name: str):
     # 1. Init PostgresHook
     pg_hook = PostgresHook(postgres_conn_id=conn_id)
     if pg_hook is None:
@@ -88,3 +88,11 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id, schema, table_name):
         method="multi", # Use multi-row insert for better performance
         chunksize=1000 # Insert 1000 rows at a time
     )
+
+    # 5. refresh materialized views that depend on this table (if any)
+    inspector = inspect(engine)
+    with engine.connect() as conn:
+        dependent_views = inspector.get_view_names(schema=schema)
+        for view in dependent_views:
+            conn.execute(f"REFRESH MATERIALIZED VIEW {schema}.{view}")
+        conn.commit()
