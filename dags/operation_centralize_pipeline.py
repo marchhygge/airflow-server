@@ -1,16 +1,17 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from datetime import datetime
+from datetime import date, datetime
 from functools import partial
 from services.operation_orchestration import run_operation
 
 with DAG(
     dag_id="operation_centralize_pipeline",
-    start_date=datetime(2026, 2, 28, 9, 0),
+    start_date=datetime(2016, 9, 4, 9, 0),
+    end_date=date(2018, 10, 17),
     schedule="@daily",
     catchup=True,
-    max_active_runs=1,
+    max_active_runs=3,
     tags=["centralize", "operation", "test"],  
 ) as dag:
 
