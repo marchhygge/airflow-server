@@ -89,7 +89,7 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
     
     # 4. Find denpendent materialized views and refresh them to ensure they reflect the latest data
     query = """
-        SELECT 
+        SELECT DISTINCT
             mv_ns.nspname AS mv_schema,
             mv.relname AS materialized_view
         FROM pg_depend dep
