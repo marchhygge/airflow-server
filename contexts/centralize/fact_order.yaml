@@ -19,10 +19,14 @@ query:
           order_id,
           customer_id,
           date(order_purchase_timestamp) as order_date,
+          order_purchase_timestamp,
+          order_approved_at,
+          order_delivered_carrier_date,
+          order_delivered_customer_date,
+          order_estimated_delivery_date,
           order_status
       from public.orders
-      where order_purchase_timestamp >= '{{start_date}}'
-        and order_purchase_timestamp <  '{{end_date}}'
+      where order_purchase_timestamp <=  '2017-01-31'
     ),
     payment_agg as (
         select
@@ -48,6 +52,11 @@ query:
         fo.customer_id,
         fo.order_date,
         fo.order_status,
+        fo.order_purchase_timestamp,
+        fo.order_estimated_delivery_date,
+        fo.order_delivered_customer_date,
+        fo.order_delivered_carrier_date,
+        fo.order_approved_at,
         p.total_payment,
         i.total_items,
         i.total_price
