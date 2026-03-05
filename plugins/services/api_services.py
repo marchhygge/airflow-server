@@ -11,10 +11,13 @@ It is designed to be used in the context of Airflow DAGs for orchestrating tasks
 import requests
 from pathlib import Path
 import yaml
+import logging
 import pandas as pd
 from airflow.models import Variable
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from sqlalchemy import inspect
+from sqlalchemy import text
+
+log = logging.getLogger(__name__)
 
 # Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
 CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
@@ -70,29 +73,62 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
         raise ValueError(f"Failed to get SQLAlchemy engine from PostgresHook with connection ID '{conn_id}'")
 
     # 3. Truncate table if exists (to avoid breaking dependent views/materialized views)
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         try:
-            conn.execute(f"TRUNCATE TABLE {schema}.{table_name}")
-            conn.commit()
+            conn.execute(text(f"TRUNCATE TABLE {schema}.{table_name}"))
+            log.info(f"Truncated table {schema}.{table_name}")
         except Exception:
-            # Table doesn't exist yet, will be created below
-            pass
+            log.info(f"Table {schema}.{table_name} does not exist yet, will be created.")
 
-    # 4. Load DataFrame to PostgreSQL
-    dataframe.to_sql(
-        name=table_name,
-        con=engine,
-        schema=schema,
-        if_exists="append", # Append data to existing table structure
-        index=False, # Do not write DataFrame index as a column in the database
-        method="multi", # Use multi-row insert for better performance
-        chunksize=1000 # Insert 1000 rows at a time
-    )
+        dataframe.to_sql(
+            name=table_name,
+            con=conn,
+            schema=schema,
+            if_exists="append",
+            index=False,
+            method="multi",
+            chunksize=1000
+        )
+        log.info(f"Loaded {len(dataframe)} rows into {schema}.{table_name}")
+    
+    # 4. Find denpendent materialized views and refresh them to ensure they reflect the latest data
+    query = f"""
+        SELECT 
+            mv_ns.nspname AS mv_schema,
+            mv.relname AS materialized_view
+        FROM pg_depend dep
+        JOIN pg_rewrite rw 
+            ON dep.objid = rw.oid
+        JOIN pg_class mv 
+            ON rw.ev_class = mv.oid
+        JOIN pg_namespace mv_ns 
+            ON mv.relnamespace = mv_ns.oid
+        JOIN pg_class tbl 
+            ON dep.refobjid = tbl.oid
+        JOIN pg_namespace tbl_ns 
+            ON tbl.relnamespace = tbl_ns.oid
+        WHERE mv.relkind = 'm'
+        AND tbl.relname = '{table_name}'
+        AND tbl_ns.nspname = '{schema}'
+        """
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text(query), 
+                {'schema':schema, 'table_name':table_name}    
+            ).fetchall()
+            if result:
+                df = pd.DataFrame(result)
+                log.info("\n" + f"List materialized views depend on {schema}.{table_name}:" + "\n" + df.head(10).to_markdown(index=False))
 
-    # 5. refresh materialized views that depend on this table (if any)
-    inspector = inspect(engine)
-    with engine.connect() as conn:
-        dependent_views = inspector.get_view_names(schema=schema)
-        for view in dependent_views:
-            conn.execute(f"REFRESH MATERIALIZED VIEW {schema}.{view}")
-        conn.commit()
+                for _, row in df.iterrows():
+                    mv_full = f"{row['mv_schema']}.{row['materialized_view']}"
+                    log.info(f"Refreshing materialized view: {mv_full}")
+                    conn.execute(text(f"REFRESH MATERIALIZED VIEW {mv_full}"))
+                    conn.commit()  
+                    log.info(f"Refreshed successfully: {mv_full}")
+            else: 
+                log.info(f"No materialized views found that depend on {schema}.{table_name}")
+            
+    except Exception as e:
+        log.error(f"Failed to connect: {e}")
