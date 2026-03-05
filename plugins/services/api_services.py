@@ -108,7 +108,7 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
         AND tbl_ns.nspname = :schema
         """
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             result = conn.execute(
                 text(query), 
                 {'schema':schema, 'table_name':table_name}    
@@ -121,7 +121,6 @@ def load_df_to_postgres(dataframe: pd.DataFrame, conn_id: str, schema: str, tabl
                     mv_full = f"{row['mv_schema']}.{row['materialized_view']}"
                     log.info(f"Refreshing materialized view: {mv_full}")
                     conn.execute(text(f"REFRESH MATERIALIZED VIEW {mv_full}"))
-                    conn.commit()
                     log.info(f"Refreshed successfully: {mv_full}")
             else: 
                 log.info(f"No materialized views found that depend on {schema}.{table_name}")
