@@ -16,3 +16,4 @@ airflow_venv/
 
 # Env
 .env
+.claude
