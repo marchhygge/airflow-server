@@ -1,5 +1,4 @@
 import yaml
-from pathlib import Path
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 from dateutil.relativedelta import relativedelta
