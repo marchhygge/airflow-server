@@ -72,3 +72,4 @@ def customer_segmentation_model_training(config_file_name):
 
     except Exception as e:
         log.error(f"Error during KMeans model training orchestration: {str(e)}")
+        raise

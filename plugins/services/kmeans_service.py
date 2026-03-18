@@ -147,7 +147,7 @@ def label_clusters(km: KMeans, scaler: RobustScaler) -> dict:
 
     log.info("\n=== Cluster centroid ===")
     log.info("\n" + centroid_df[['cluster', 'recency', 'monetary']].to_string(index=False))
-    log.info("labels:", label_map)
+    log.info(f"labels: {label_map}")
     return label_map
 
 def save_artifacts(bucket: str, km: KMeans, scaler: RobustScaler, label_map: dict):
@@ -174,7 +174,7 @@ def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans
         table_name,
         engine,
         schema=schema,
-        if_exists='append',
+        if_exists='replace',
         index=False
     )
     log.info(f"saved {len(result)} records to {schema}.{table_name}")
