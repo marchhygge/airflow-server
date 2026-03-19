@@ -6,7 +6,7 @@ from functools import partial
 from services.kmeans_training_model_orchestration import customer_segmentation_model_training
 
 with DAG(
-    dag_id="kmeans training model",
+    dag_id="kmeans_training_model",
     start_date=datetime(2026, 3, 19, 9, 0),
     end_date=datetime(2026, 3, 20, 9, 0),
     schedule="@daily", # first run = start_date + 1 days
