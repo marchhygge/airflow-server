@@ -123,18 +123,16 @@ def label_clusters(km: KMeans, scaler: RobustScaler) -> dict:
     centroid_df['monetary'] = np.expm1(centroid_df['monetary'])
 
     # Define labels based on centroids
-    med_r = centroid_df['recency'].median()
-    med_m = centroid_df['monetary'].median()
+    r_rank = centroid_df['recency'].rank(ascending=True)
+    m_rank = centroid_df['monetary'].rank(ascending=False)
 
     # Assign labels 
     label_map = {}
     for _, row in centroid_df.iterrows():
-        is_recent = row['recency'] < med_r
-        is_high_value = row['monetary'] > med_m
 
-        if is_recent and is_high_value: 
+        if r_rank<=2 and m_rank==1: 
             label = 'champions'
-        elif is_recent and not is_high_value:
+        elif r_rank<=2 and m_rank!=1:
             label = 'potential'
         else:
             label = 'at_risk'
