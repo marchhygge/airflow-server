@@ -1,12 +1,8 @@
 from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-from os import getenv
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 import logging
-from sklearn.preprocessing import RobustScaler, StandardScaler
+from sklearn.preprocessing import RobustScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from supabase import create_client

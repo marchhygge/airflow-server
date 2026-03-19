@@ -1,7 +1,6 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
-import pickle
 from services.kmeans_service import (
     extract_data, 
     find_k,
