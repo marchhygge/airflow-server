@@ -6,7 +6,9 @@ from services.kmeans_service import (
     find_k,
     label_clusters, 
     preprocess,
-    save_rfm_clusters, 
+    save_centroid_metadata,
+    save_rfm_clusters,
+    save_training_metadata, 
     train_KMeans,
     save_artifacts
 )
@@ -45,6 +47,11 @@ def customer_segmentation_model_training(config_file_name):
         # artifact parameters
         artifact_query = config['postgres']['artifact']['query']
 
+        # metadata logging
+        metadata_queries = config['postgres']['metadata']
+        kmeans_training_log_query = metadata_queries['kmeans_training']['query']
+        kmeans_centroid_log_query = metadata_queries['kmeans_centroid']['query']
+
         log.info(f"Config loaded. Schema: {training_schema}, table: {training_table}, Connection ID: {conn}, start_date: {start_date}, end_date: {end_date}")
 
         # 2. Init PostgresHook and Engine
@@ -80,7 +87,15 @@ def customer_segmentation_model_training(config_file_name):
 
         # 9. save training rfm data to database
         log.info("9. Saving cluster labels to database...")
-        save_rfm_clusters(training_schema, training_table, df, km, cluster_labels, engine)
+        n_samples = save_rfm_clusters(training_schema, training_table, df, km, cluster_labels, engine)
+
+        # 10. save training metadata to database
+        log.info("10. Saving training metadata to database...")
+        training_id = save_training_metadata(engine, km, scaler, scaled_data, kmeans_training_log_query, start_date, end_date, n_samples)
+
+        # 11. save centroid metadata to database
+        log.info("11. Saving centroid metadata to database...")
+        save_centroid_metadata(engine, km, scaler, kmeans_centroid_log_query, training_id, cluster_labels)
 
     except Exception as e:
         log.error(f"Error during KMeans model training orchestration: {str(e)}")

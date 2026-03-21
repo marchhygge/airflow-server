@@ -2,7 +2,7 @@ postgres:
   conn_id: supermarket
 
   training:
-    schema: centralize
+    schema: customer_segmentation
     table: rfm_clusters
     start_date: 2016-09-04
     end_date: 2017-02-28
@@ -27,8 +27,42 @@ postgres:
 
   artifact:
     query: | 
-      insert into centralize.ml_artifacts (artifact_name, artifact_data, updated_at)
+      insert into customer_segmentation.ml_artifacts (artifact_name, artifact_data, updated_at)
       values (:artifact_name, :artifact_data, :updated_at)
+      on conflict (artifact_name) 
+      do update set 
+        artifact_data = excluded.artifact_data, 
+        updated_at = excluded.updated_at
+  
+  metadata:
+    kmeans_training:
+      query: |
+        insert into customer_segmentation.kmeans_training_log (
+          trained_at, start_date, end_date, n_samples,
+          n_clusters, inertia, silhouette, n_iter,
+          recency_median, monetary_median,
+          recency_iqr, monetary_iqr
+        )
+        values (
+          :trained_at, :start_date, :end_date, :n_samples,
+          :n_clusters, :inertia, :silhouette, :n_iter,
+          :recency_median, :monetary_median,
+          :recency_iqr, :monetary_iqr
+        )
+        returning id
+
+    kmeans_centroid:
+      query: |
+        insert into customer_segmentation.kmeans_centroid_log (
+          training_id, cluster_id, cluster_name,
+          recency_scaled, monetary_scaled,
+          recency_orig, monetary_orig
+        )
+        values (
+          :training_id, :cluster_id, :cluster_name,
+          :recency_scaled, :monetary_scaled,
+          :recency_orig, :monetary_orig
+        )
 
 
 
