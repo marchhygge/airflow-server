@@ -7,7 +7,8 @@ from services.kmeans_service import (
     label_clusters, 
     preprocess,
     save_rfm_clusters, 
-    train_KMeans
+    train_KMeans,
+    save_artifacts
 )
 
 # Logging configuration
@@ -31,13 +32,20 @@ def customer_segmentation_model_training(config_file_name):
         with open(f"{CONTEXTS_DIR}/{config_file_name}", 'r') as file:
             config = yaml.safe_load(file)
         
+        # connection
         conn = config['postgres']['conn_id']
-        schema = config['postgres']['target']['schema']
-        table = config['postgres']['target']['table']
-        start_date = config['postgres']['target']['start_date']
-        end_date = config['postgres']['target']['end_date']
-        query = config['query']['sql']
-        log.info(f"Config loaded. Schema: {schema}, table: {table}, Connection ID: {conn}, start_date: {start_date}, end_date: {end_date}")
+
+        # training data parameters
+        training_schema = config['postgres']['training']['schema']
+        training_table = config['postgres']['training']['table']
+        start_date = config['postgres']['training']['start_date']
+        end_date = config['postgres']['training']['end_date']
+        training_query = config['postgres']['training']['query']
+
+        # artifact parameters
+        artifact_query = config['postgres']['artifact']['query']
+
+        log.info(f"Config loaded. Schema: {training_schema}, table: {training_table}, Connection ID: {conn}, start_date: {start_date}, end_date: {end_date}")
 
         # 2. Init PostgresHook and Engine
         log.info("2. Initializing PostgresHook and Engine...")
@@ -46,7 +54,7 @@ def customer_segmentation_model_training(config_file_name):
 
         # 3. Extract data
         log.info("3. Extracting data...")
-        df = extract_data(engine, query, start_date, end_date)
+        df = extract_data(engine, training_query, start_date, end_date)
         log.info("\n" + "Sample data:" + "\n" + df.head(10).to_markdown(index=False))
 
         # 4. Preprocess data
@@ -65,9 +73,14 @@ def customer_segmentation_model_training(config_file_name):
         log.info("7. Labeling clusters...")
         cluster_labels = label_clusters(km, scaler)
 
-        # 8. save rfm cluster to database
-        log.info("8. Saving cluster labels to database...")
-        save_rfm_clusters(schema, table, df, km, cluster_labels, engine)
+        # 8. save artifacts to database
+        log.info("8. Saving artifacts to database...")
+        save_artifacts(engine, "kmeans_model", km, artifact_query)
+        save_artifacts(engine, "scaler", scaler, artifact_query)
+
+        # 9. save training rfm data to database
+        log.info("9. Saving cluster labels to database...")
+        save_rfm_clusters(training_schema, training_table, df, km, cluster_labels, engine)
 
     except Exception as e:
         log.error(f"Error during KMeans model training orchestration: {str(e)}")
