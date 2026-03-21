@@ -5,27 +5,9 @@ import logging
 from sklearn.preprocessing import RobustScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from supabase import create_client
 import pickle
 
 log = logging.getLogger(__name__)
-
-def build_engine() -> create_engine:
-    """
-    Builds a SQLAlchemy engine using environment variables.
-    
-    args:
-    returns:
-        create_engine: SQLAlchemy engine object for database connection
-    raises:
-        Exception: If there is an error creating the engine
-    """
-    try:
-        engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{database}')
-        log.info(f"successfully created engine for database: {database}")
-        return engine
-    except Exception as e:
-        log.error(f"Error creating engine. Error: {e}")
 
 def extract_data(engine: create_engine, query: str, start_date: str, end_date: str) -> pd.DataFrame:
     """
@@ -144,19 +126,15 @@ def label_clusters(km: KMeans, scaler: RobustScaler) -> dict:
     log.info(f"labels: {label_map}")
     return label_map
 
-def save_artifacts(bucket: str, km: KMeans, scaler: RobustScaler, label_map: dict):
-    supabase = create_client(supabase_url, supabase_key)
-    artifacts = {
-        'rfm/kmeans.pkl': pickle.dumps(km),
-        'rfm/scaler.pkl': pickle.dumps(scaler),
-    }
-    for path, data in artifacts.items():
-        supabase.storage.from_(bucket).upload(
-            path, 
-            file=data,
-            file_options={"upsert": "true", "content_type": "application/octet-stream"}
-        )
-        log.info(f"Saved artifact: {path}")
+def save_artifacts(engine: create_engine, artifacts_name: str, obj, artifact_query: str) -> None:
+    data = pickle.dumps(obj)
+    with engine.begin() as conn:
+        conn.execute(text(artifact_query), {
+            "artifact_name": artifacts_name,
+            "artifact_data": data,
+            "updated_at": pd.Timestamp.now()
+        })
+    log.info(f"Saved artifact: {artifacts_name} to database")
 
 def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans, label_map: dict, engine: create_engine):
     result = df[['customer_unique_id', 'recency', 'monetary']].copy()
