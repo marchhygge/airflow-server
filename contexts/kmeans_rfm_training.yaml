@@ -49,6 +49,7 @@ postgres:
           :recency_median, :monetary_median,
           :recency_iqr, :monetary_iqr
         )
+        returning id
 
     kmeans_centroid:
       query: |

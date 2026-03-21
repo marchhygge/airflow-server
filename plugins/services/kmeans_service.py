@@ -164,7 +164,7 @@ def save_training_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
             "n_samples": n_samples,
             "n_clusters": km.n_clusters,
             "inertia": km.inertia_,
-            "silhouette_score": float(sil),
+            "silhouette": float(sil),
             "n_iter": km.n_iter_,
             # scaler.center_ = [recency_median, monetary_median]
             "recency_median": float(scaler.center_[0]),
@@ -175,7 +175,7 @@ def save_training_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
         })
         training_id = result.fetchone()[0] # get the generated training_id
 
-    log.info("Saved training metadata to database: training_id={training_id} |"
+    log.info(f"Saved training metadata to database: training_id={training_id} |"
             f"silhouette={sil:.4f} | inertia={km.inertia_:,.1f} | "
             f"recency_median={scaler.center_[0]:.2f} | recency_iqr={scaler.scale_[0]:.2f} | "
             f"monetary_median={scaler.center_[1]:.2f} | monetary_iqr={scaler.scale_[1]:.2f}")

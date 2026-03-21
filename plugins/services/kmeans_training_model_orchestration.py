@@ -49,8 +49,8 @@ def customer_segmentation_model_training(config_file_name):
 
         # metadata logging
         metadata_queries = config['postgres']['metadata']
-        kmeans_training_log_query = metadata_queries['kmeans_training']
-        kmeans_centroid_log_query = metadata_queries['kmeans_centroid']
+        kmeans_training_log_query = metadata_queries['kmeans_training']['query']
+        kmeans_centroid_log_query = metadata_queries['kmeans_centroid']['query']
 
         log.info(f"Config loaded. Schema: {training_schema}, table: {training_table}, Connection ID: {conn}, start_date: {start_date}, end_date: {end_date}")
 
