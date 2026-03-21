@@ -31,6 +31,7 @@ def extract_data(engine: create_engine, query: str, start_date: str, end_date: s
             return df
     except Exception as e:
         log.error(f"Error executing query. Error: {e}")
+        raise
 
 def preprocess(df: pd.DataFrame) -> tuple[np.ndarray, RobustScaler]:
     """
