@@ -136,17 +136,20 @@ def save_artifacts(engine: create_engine, artifacts_name: str, obj, artifact_que
         })
     log.info(f"Saved artifact: {artifacts_name} to database")
 
-def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans, label_map: dict, engine: create_engine) -> int:
+def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans, label_map: dict, engine: create_engine,
+                      labels: np.ndarray = None, if_exists: str = 'replace', execution_date=None) -> int:
     result = df[['customer_unique_id', 'recency', 'monetary']].copy()
-    result['cluster_id'] = km.labels_ 
+    result['cluster_id'] = labels if labels is not None else km.labels_
     result['cluster_name'] = result['cluster_id'].map(label_map)
     result['updated_at'] = pd.Timestamp.now()
+    if execution_date is not None:
+        result['execution_date'] = execution_date
     log.info("\n" + "Clustered data sample:" + "\n" + result.head(10).to_markdown(index=False))
     result.to_sql(
         table_name,
         engine,
         schema=schema,
-        if_exists='replace',
+        if_exists=if_exists,
         index=False
     )
     n_samples = len(result)
@@ -199,3 +202,25 @@ def save_centroid_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
     with engine.begin() as conn:
         conn.execute(text(query), records)
     log.info(f"Saved centroid metadata to database for training_id={training_id} | records: {records}")
+
+def load_artifact(engine: create_engine, artifact_name: str, query: str) -> object:
+    with engine.begin() as conn:
+        result = conn.execute(text(query), {"artifact_name": artifact_name})
+        row = result.fetchone()
+        if row is None:
+            raise ValueError(f"No artifact found with name: {artifact_name}")
+        obj = pickle.loads(row[0])
+        log.info(f"Loaded artifact: {artifact_name} from database")
+        return obj
+    
+def daily_assign_clusters(df: pd.DataFrame, scaler: RobustScaler, km: KMeans) -> tuple[pd.DataFrame, np.ndarray, dict]:
+    # preprocess daily 
+    features = df[['recency', 'monetary']].copy()
+    features['monetary'] = np.log1p(features['monetary'].astype(float))
+    scaled = scaler.transform(features)
+
+    # assign cluster labels
+    label = km.predict(scaled)
+    label_map = label_clusters(km, scaler)
+
+    return df, label, label_map
