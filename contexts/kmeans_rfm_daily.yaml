@@ -7,6 +7,7 @@ postgres:
     query: |
       select c.customer_unique_id
            , ('{end_date}'::date - max(o.order_purchase_timestamp)::date) + 1 as recency
+           , count(distinct o.order_id) as frequency
            , sum(op.total_payment) as monetary
       from public.orders o
       inner join public.customers c
@@ -21,7 +22,6 @@ postgres:
         and o.order_purchase_timestamp < '{end_date}'::date + interval '1 day'
       group by 1
       having sum(op.total_payment) > 0
-        and count(distinct o.order_id) = 1
 
   artifact:
     query: | 

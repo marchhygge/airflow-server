@@ -37,7 +37,7 @@ def preprocess(df: pd.DataFrame) -> tuple[np.ndarray, RobustScaler]:
     """
     Preprocesses the input DataFrame for KMeans clustering.
     args:
-     - df: Input DataFrame containing 'recency' and 'monetary' columns
+     - df: Input DataFrame containing 'recency', 'frequency', and 'monetary' columns
     returns:
      - tuple[np.ndarray, RobustScaler]: A tuple containing the scaled data and the fitted RobustScaler object
     raises:
@@ -45,7 +45,7 @@ def preprocess(df: pd.DataFrame) -> tuple[np.ndarray, RobustScaler]:
      - ValueError: If required columns are missing or if the DataFrame is empty
     """
     try:
-        features = df[['recency', 'monetary']].copy()
+        features = df[['recency', 'frequency', 'monetary']].copy()
         features['monetary'] = np.log1p(features['monetary'].astype(float))
 
         scaler = RobustScaler()
@@ -93,36 +93,36 @@ def train_KMeans(scaled_data: np.ndarray, n_clusters: int = 3) -> KMeans:
 
 def label_clusters(km: KMeans, scaler: RobustScaler) -> dict:
     # Inverse transform
-    centroids_orig= scaler.inverse_transform(km.cluster_centers_)
+    centroids_orig = scaler.inverse_transform(km.cluster_centers_)
 
     # Create a DataFrame for centroids
     centroid_df = pd.DataFrame({
-        'cluster': range(len(centroids_orig)),
-        'recency': centroids_orig[:, 0],
-        'monetary': centroids_orig[:, 1]
+        'cluster':   range(len(centroids_orig)),
+        'recency':   centroids_orig[:, 0],
+        'frequency': centroids_orig[:, 1],
+        'monetary':  centroids_orig[:, 2]
     })
 
-    # Reverse log1p
+    # Reverse log1p on monetary only
     centroid_df['monetary'] = np.expm1(centroid_df['monetary'])
 
-    # Define labels based on centroids
-    centroid_df['r_rank'] = centroid_df['recency'].rank(ascending=True)
-    centroid_df['m_rank'] = centroid_df['monetary'].rank(ascending=False)
+    # Rank each dimension
+    centroid_df['r_rank'] = centroid_df['recency'].rank(ascending=True)    # low days = good
+    centroid_df['f_rank'] = centroid_df['frequency'].rank(ascending=False) # high freq = good
+    centroid_df['m_rank'] = centroid_df['monetary'].rank(ascending=False)  # high spend = good
 
     # Assign labels
     label_map = {}
     for _, row in centroid_df.iterrows():
-
-        if row['r_rank'] <= 2 and row['m_rank'] == 1:
+        if row['r_rank'] <= 2 and row['f_rank'] == 1 and row['m_rank'] == 1:
             label = 'champions'
-        elif row['r_rank'] <= 2 and row['m_rank'] != 1:
+        elif row['r_rank'] <= 2:
             label = 'potential'
         else:
             label = 'at_risk'
-
         label_map[int(row['cluster'])] = label
 
-    log.info("\n=== Cluster centroid ===" + "\n" + centroid_df[['cluster', 'recency', 'monetary']].to_string(index=False))
+    log.info("\n=== Cluster centroid ===" + "\n" + centroid_df[['cluster', 'recency', 'frequency', 'monetary']].to_string(index=False))
     log.info(f"labels: {label_map}")
     return label_map
 
@@ -138,12 +138,16 @@ def save_artifacts(engine: create_engine, artifacts_name: str, obj, artifact_que
 
 def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans, label_map: dict, engine: create_engine,
                       labels: np.ndarray = None, if_exists: str = 'replace', execution_date=None) -> int:
-    result = df[['customer_unique_id', 'recency', 'monetary']].copy()
+    result = df[['customer_unique_id', 'recency', 'frequency', 'monetary']].copy()
     result['cluster_id'] = labels if labels is not None else km.labels_
     result['cluster_name'] = result['cluster_id'].map(label_map)
     result['updated_at'] = pd.Timestamp.now()
     if execution_date is not None:
         result['execution_date'] = execution_date
+        with engine.begin() as conn:
+            conn.execute(text(f"DELETE FROM {schema}.{table_name} WHERE execution_date = :execution_date"),
+                         {"execution_date": execution_date})
+        log.info(f"Deleted existing records for execution_date={execution_date} from {schema}.{table_name}")
     log.info("\n" + "Clustered data sample:" + "\n" + result.head(10).to_markdown(index=False))
     result.to_sql(
         table_name,
@@ -170,19 +174,22 @@ def save_training_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
             "inertia": km.inertia_,
             "silhouette": float(sil),
             "n_iter": km.n_iter_,
-            # scaler.center_ = [recency_median, monetary_median]
-            "recency_median": float(scaler.center_[0]),
-            "monetary_median": float(scaler.center_[1]),
-            # scaler.scale_ = [recency_iqr, monetary_iqr]
-            "recency_iqr": float(scaler.scale_[0]),
-            "monetary_iqr": float(scaler.scale_[1])
+            # scaler.center_ = [recency_median, frequency_median, monetary_median]
+            "recency_median":   float(scaler.center_[0]),
+            "frequency_median": float(scaler.center_[1]),
+            "monetary_median":  float(scaler.center_[2]),
+            # scaler.scale_ = [recency_iqr, frequency_iqr, monetary_iqr]
+            "recency_iqr":   float(scaler.scale_[0]),
+            "frequency_iqr": float(scaler.scale_[1]),
+            "monetary_iqr":  float(scaler.scale_[2])
         })
         training_id = result.fetchone()[0] # get the generated training_id
 
     log.info(f"Saved training metadata to database: training_id={training_id} |"
             f"silhouette={sil:.4f} | inertia={km.inertia_:,.1f} | "
             f"recency_median={scaler.center_[0]:.2f} | recency_iqr={scaler.scale_[0]:.2f} | "
-            f"monetary_median={scaler.center_[1]:.2f} | monetary_iqr={scaler.scale_[1]:.2f}")
+            f"frequency_median={scaler.center_[1]:.2f} | frequency_iqr={scaler.scale_[1]:.2f} | "
+            f"monetary_median={scaler.center_[2]:.2f} | monetary_iqr={scaler.scale_[2]:.2f}")
     return training_id
 
 def save_centroid_metadata(engine: create_engine, km: KMeans, scaler: RobustScaler, query: str,
@@ -191,13 +198,15 @@ def save_centroid_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
     records = []
     for cluster_id in range(len(km.cluster_centers_)):
         records.append({
-            "training_id": training_id,
-            "cluster_id": cluster_id,
-            "cluster_name": label_map[cluster_id],
-            "recency_scaled": float(km.cluster_centers_[cluster_id][0]),
-            "monetary_scaled": float(km.cluster_centers_[cluster_id][1]),
-            "recency_orig": float(centroids_orig[cluster_id][0]),
-            "monetary_orig": float(np.expm1(centroids_orig[cluster_id][1]))
+            "training_id":      training_id,
+            "cluster_id":       cluster_id,
+            "cluster_name":     label_map[cluster_id],
+            "recency_scaled":   float(km.cluster_centers_[cluster_id][0]),
+            "frequency_scaled": float(km.cluster_centers_[cluster_id][1]),
+            "monetary_scaled":  float(km.cluster_centers_[cluster_id][2]),
+            "recency_orig":     float(centroids_orig[cluster_id][0]),
+            "frequency_orig":   float(centroids_orig[cluster_id][1]),
+            "monetary_orig":    float(np.expm1(centroids_orig[cluster_id][2]))
         })
     with engine.begin() as conn:
         conn.execute(text(query), records)
@@ -214,8 +223,8 @@ def load_artifact(engine: create_engine, artifact_name: str, query: str) -> obje
         return obj
     
 def daily_assign_clusters(df: pd.DataFrame, scaler: RobustScaler, km: KMeans) -> tuple[pd.DataFrame, np.ndarray, dict]:
-    # preprocess daily 
-    features = df[['recency', 'monetary']].copy()
+    # preprocess daily
+    features = df[['recency', 'frequency', 'monetary']].copy()
     features['monetary'] = np.log1p(features['monetary'].astype(float))
     scaled = scaler.transform(features)
 
