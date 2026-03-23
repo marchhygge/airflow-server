@@ -11,6 +11,8 @@ __pycache__/
 tests
 
 # Virtual environment
+.venv/
+venv/
 airflow_venv/
 ../airflow_venv/
 
