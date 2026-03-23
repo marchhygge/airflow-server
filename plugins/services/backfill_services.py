@@ -75,7 +75,7 @@ def build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template):
     )
 
 # build SQL for a single day
-def build_sql_for_day(raw_sql, schema, table, process_date, render_template):
+def build_sql_for_day(raw_sql, schema, table, process_date, render_template) -> str:
     """
     Input:
     - raw_sql: query from yaml config
