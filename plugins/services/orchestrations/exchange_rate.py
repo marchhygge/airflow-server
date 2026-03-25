@@ -4,10 +4,10 @@ import pandas as pd
 from datetime import datetime, timezone, timedelta
 from services.core.api import (
     validate_api_status,
-    load_config,
     get_api_key,
     load_df_to_postgres
 )
+from plugins.services.core.config import load_config
 
 # log configuration
 log = logging.getLogger(__name__)

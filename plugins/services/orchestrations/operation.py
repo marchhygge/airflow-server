@@ -3,7 +3,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from services.core.dag_services import get_execution_date
 from services.core.backfill_services import build_sql_for_day, resolve_raw_sql
 from services.core.sql import check_exist_table, render_template
-from services.core.api import load_config
+from services.core.config import load_config
 from services.core.validate import (
     validate_config,
     validate_convert_datetime,
@@ -16,7 +16,6 @@ from services.core.validate import (
 log = logging.getLogger(__name__)
 
 # Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
-CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
 def run_operation(config_file_name, **context):
 
