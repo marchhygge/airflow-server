@@ -40,17 +40,29 @@ airflow-server/
 ├── dags/                              # Airflow DAG definitions
 │   ├── centralize_pipeline.py         # Main DWH pipeline (fact + dim tables)
 │   ├── operation_centralize_pipeline.py
+│   ├── exchange_rate_test.py
 │   ├── kmeans_training_model.py       # KMeans training DAG
 │   └── kmeans_daily_assign.py         # Daily cluster assignment DAG
 │
 ├── plugins/services/                  # Business logic (called by DAGs)
-│   ├── kmeans_service.py              # Core KMeans functions
-│   ├── kmeans_training_model_orchestration.py
-│   ├── kmeans_daily_assign_orchestration.py
-│   ├── backfill_orchestration.py
-│   ├── backfill_services.py
-│   ├── sql_services.py
-│   └── validate_services.py
+│   ├── credentials/
+│   │   └── config.py                  # CONTEXTS_DIR + load_config (single source)
+│   ├── core/
+│   │   ├── api.py                     # API utilities (validate, load_df_to_postgres)
+│   │   ├── sql.py                     # SQL rendering utilities
+│   │   ├── validate.py                # Input validation helpers
+│   │   ├── dag_services.py            # Airflow context helpers
+│   │   └── backfill_services.py       # Backfill SQL helpers
+│   ├── orchestrations/
+│   │   ├── kmeans_training.py         # KMeans training pipeline
+│   │   ├── kmeans_daily.py            # Daily cluster assignment pipeline
+│   │   ├── backfill.py                # DWH backfill pipeline
+│   │   ├── operation.py               # Operation pipeline
+│   │   └── exchange_rate.py           # Exchange rate pipeline
+│   └── ml/
+│       ├── kmeans.py                  # KMeans core functions
+│       └── notebooks/
+│           └── kmeans_EDA.ipynb       # EDA & training exploration notebook
 │
 ├── contexts/                          # YAML configs for each pipeline
 │   ├── kmeans_rfm_training.yaml
@@ -65,9 +77,7 @@ airflow-server/
 │       ├── dim_user.yaml
 │       └── dim_order_review.yaml
 │
-├── final_kmeans.ipynb                 # KMeans exploration & training notebook
-├── Tests/                             # Development & validation notebooks
-└── .github/workflows/deploy.yml      # CI/CD: auto-deploy to EC2 on push to main
+└── .github/workflows/deploy.yml       # CI/CD: auto-deploy to EC2 on push to main
 ```
 
 ---
@@ -95,38 +105,49 @@ Backfills and maintains fact/dimension tables in the `centralize` schema.
 
 ### 2. KMeans Customer Segmentation (ML)
 
+#### RFM Feature Definitions
+
+| Feature | Window | Description |
+|---|---|---|
+| **Recency** | Full period | Days since last purchase relative to `snapshot_date` |
+| **Frequency** | Last 30 days | Number of orders within the 30-day window |
+| **Monetary** | Last 30 days | Total revenue within the 30-day window |
+
+Customers outside the 30-day window receive Frequency = 0, Monetary = 0 — they become the **Cooling Down** and **Dormant** segments.
+
 #### Training (`kmeans_training_model.py`)
 
-Trains a KMeans model on historical RFM data and saves artifacts to DB.
+Trains a KMeans model on 6 months of historical RFM data and saves artifacts to DB.
 
 | Step | Description |
 |---|---|
-| Extract | RFM query over training period (2016-09-04 → 2017-02-28) |
-| Preprocess | `log1p(monetary)` + `RobustScaler` on `[recency, frequency, monetary]` |
-| Find k | Elbow + Silhouette score for k=2..7 |
-| Train | `KMeans(n_clusters=3)` |
-| Label | Rank centroids → assign champions / potential / at_risk |
-| Save | Artifacts, RFM clusters, training metadata, centroid metadata |
+| Extract | Raw order data: `2016-09-04 → 2017-02-28` |
+| Compute RFM | Recency (full period) · Frequency & Monetary (30-day window) |
+| Preprocess | `log1p(freq)` + `log1p(monetary)` + `RobustScaler` |
+| Find k | Elbow + Silhouette score for k=2..7 (informational) |
+| Train | `KMeans(n_clusters=3, n_init=10, max_iter=300)` |
+| Label | Rank centroids by recency → assign segment names |
+| Save | Artifacts · RFM clusters · training metadata · centroid metadata |
 
 #### Daily Assign (`kmeans_daily_assign.py`)
 
-Assigns clusters to customers who purchased on `execution_date` using the pre-trained model.
+Assigns every customer with purchase history (last 180 days) to a cluster using the pre-trained model.
 
 | Step | Description |
 |---|---|
-| Load | Scaler + KMeans model from `ml_artifacts` |
-| Extract | RFM over rolling 6-month window, triggered by today's buyers |
+| Extract | Raw orders: last 180 days (for recency) |
+| Compute RFM | Same logic as training — recency from full lookback, F/M from 30-day window |
 | Transform | `scaler.transform()` — no retraining |
 | Predict | `km.predict()` → cluster assignment |
 | Save | Append to `rfm_clusters_daily` with `execution_date` (idempotent) |
 
 #### Segment Labels
 
-| Segment | Recency | Frequency | Monetary |
-|---|---|---|---|
-| **champions** | Low (recent) | Highest | Highest |
-| **potential** | Low (recent) | Medium | Medium |
-| **at_risk** | High (inactive) | Lowest | Lowest |
+| Segment | Recency | Freq 30d | Monetary 30d | MKT Strategy |
+|---|---|---|---|---|
+| **active_buyers** | Low (~17d) | > 0 | > 0 | Retention · Upsell · Loyalty |
+| **cooling_down** | Medium (~36d) | 0 | 0 | Win-back · Limited-time offer |
+| **dormant** | High (~145d) | 0 | 0 | Last-chance discount · Suppress |
 
 ---
 
@@ -141,25 +162,46 @@ customer_segmentation
 └── kmeans_centroid_log    # Centroid positions per training run
 ```
 
+`rfm_clusters` and `rfm_clusters_daily` columns: `customer_unique_id · recency · frequency · monetary · cluster_id · cluster_name · updated_at`
+
 ---
 
 ## Configuration
 
-Each pipeline reads from a YAML config in `contexts/`. Example for KMeans daily:
+All pipeline configs live in `contexts/`. A single path constant controls where Airflow looks for them:
+
+```python
+# plugins/services/credentials/config.py
+CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
+```
+
+Update this value when deploying to a different environment.
+
+Example — KMeans training config:
 
 ```yaml
-# contexts/kmeans_rfm_daily.yaml
+# contexts/kmeans_rfm_training.yaml
 postgres:
   conn_id: supermarket
-  daily:
+  training:
     schema: customer_segmentation
-    table: rfm_clusters_daily
+    table: rfm_clusters
+    start_date: 2016-09-04
+    end_date:   2017-02-28
+    snapshot_date: 2017-02-28
+    window_days: 30
+    n_clusters: 3
     query: |
-      select customer_unique_id, recency, frequency, monetary
-      ...
-  artifact:
-    query: |
-      select artifact_data from ml_artifacts where artifact_name = :artifact_name
+      SELECT c.customer_unique_id,
+             DATE(o.order_purchase_timestamp) AS event_date,
+             SUM(p.payment_value)             AS revenue
+      FROM orders o
+      JOIN customers c ON o.customer_id = c.customer_id
+      JOIN order_payments p ON o.order_id = p.order_id
+      WHERE o.order_status NOT IN ('canceled','unavailable')
+        AND DATE(o.order_purchase_timestamp) >= '{start_date}'
+        AND DATE(o.order_purchase_timestamp) <= '{end_date}'
+      GROUP BY c.customer_unique_id, DATE(o.order_purchase_timestamp), o.order_id
 ```
 
 ---
@@ -197,15 +239,24 @@ cd airflow-server
 
 # 2. Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
 pip install apache-airflow scikit-learn pandas sqlalchemy psycopg2-binary pyyaml python-dotenv
 
 # 4. Set environment variables
 cp .env.example .env
-# Fill in DATABASE, USER, PASSWORD, HOST, PORT, SUPABASE_URL, SUPABASE_KEY
+# Fill in: DATABASE, USER, PASSWORD, HOST, PORT, SUPABASE_URL, SUPABASE_KEY
 
-# 5. Run exploration notebook
-jupyter notebook final_kmeans.ipynb
+# 5. Run EDA notebook
+jupyter notebook plugins/services/ml/notebooks/kmeans_EDA.ipynb
+```
+
+### Checking DAG import errors on EC2
+
+```bash
+airflow dags list-import-errors
+
+# or test a specific module directly
+python -c "from services.orchestrations.kmeans_training import customer_segmentation_model_training; print('OK')"
 ```
