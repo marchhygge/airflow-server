@@ -2,7 +2,6 @@ import yaml
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 from dateutil.relativedelta import relativedelta
-from services.credentials.config import CONTEXTS_DIR, load_config
 from services.core.sql import (
     check_exist_table,
     check_data_available,
@@ -23,6 +22,8 @@ from services.core.validate import (
     validate_pg,
     validate_sql
 )
+from services.core.config import load_config
+
 # logging configuration
 log = logging.getLogger(__name__)
 

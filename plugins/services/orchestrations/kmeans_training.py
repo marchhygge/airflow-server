@@ -1,8 +1,8 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
+from services.core.config import load_config
 from services.ml.kmeans import (
-from services.credentials.config import CONTEXTS_DIR, load_config
     compute_rfm,
     extract_data,
     find_k,

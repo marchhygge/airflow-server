@@ -13,7 +13,6 @@ log = logging.getLogger(__name__)
 # Update this value when deploying to a different environment.
 CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
-
 def load_config(config_file_name: str) -> dict:
     """
     Loads a YAML config file from CONTEXTS_DIR.

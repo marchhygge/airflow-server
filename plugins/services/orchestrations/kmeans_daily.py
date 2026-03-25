@@ -2,8 +2,8 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
 from datetime import timedelta
+from services.core.config import load_config
 from services.ml.kmeans import (
-from services.credentials.config import CONTEXTS_DIR, load_config
     compute_rfm,
     daily_assign_clusters,
     extract_data,

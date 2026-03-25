@@ -3,7 +3,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from services.core.dag_services import get_execution_date
 from services.core.backfill_services import build_sql_for_day, resolve_raw_sql
 from services.core.sql import check_exist_table, render_template
-from services.credentials.config import CONTEXTS_DIR, load_config
+from services.core.config import load_config
 from services.core.validate import (
     validate_config,
     validate_convert_datetime,
