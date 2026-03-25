@@ -4,24 +4,25 @@ postgres:
   daily:
     schema: customer_segmentation
     table: rfm_clusters_daily
+    window_days: 30
     query: |
-      select c.customer_unique_id
-           , ('{end_date}'::date - max(o.order_purchase_timestamp)::date) + 1 as recency
-           , count(distinct o.order_id) as frequency
-           , sum(op.total_payment) as monetary
-      from public.orders o
-      inner join public.customers c
-          on c.customer_id = o.customer_id
-      left join (
-          select order_id, sum(payment_value) as total_payment
-          from public.order_payments
-          group by 1
-      ) op
-          on op.order_id = o.order_id
-      where o.order_purchase_timestamp >= '{start_date}'
-        and o.order_purchase_timestamp < '{end_date}'::date + interval '1 day'
-      group by 1
-      having sum(op.total_payment) > 0
+      SELECT
+        c.customer_unique_id,
+        DATE(o.order_purchase_timestamp)   AS event_date,
+        SUM(p.payment_value)               AS revenue
+      FROM orders o
+      JOIN customers c
+          ON o.customer_id = c.customer_id
+      JOIN order_payments p
+          ON o.order_id = p.order_id
+      WHERE
+          o.order_status NOT IN ('canceled', 'unavailable')
+          AND DATE(o.order_purchase_timestamp) >= '{start_date}'
+          AND DATE(o.order_purchase_timestamp) <= '{end_date}'
+      GROUP BY
+          c.customer_unique_id,
+          DATE(o.order_purchase_timestamp),
+          o.order_id
 
   artifact:
     query: | 
