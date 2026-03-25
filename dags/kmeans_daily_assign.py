@@ -3,7 +3,7 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 from datetime import date, datetime
 from functools import partial
-from services.kmeans_daily_assign_orchestration import customer_segmentation_daily_assign
+from services.orchestrations.kmeans_daily import customer_segmentation_daily_assign
 
 with DAG(
     dag_id="kmeans_daily_assign_pipeline",

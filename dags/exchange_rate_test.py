@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
 from functools import partial
-from services.exchange_rate_orchestration import (
+from services.orchestrations.exchange_rate import (
     get_exchange_rates_df,
     get_quota_info
 )

@@ -2,7 +2,7 @@ import requests
 import logging
 import pandas as pd
 from datetime import datetime, timezone, timedelta
-from services.api_services import (
+from services.core.api import (
     validate_api_status,
     load_config,
     get_api_key,

@@ -199,17 +199,8 @@ def save_artifacts(engine: create_engine, artifacts_name: str, obj, artifact_que
     log.info(f"Saved artifact: {artifacts_name}")
 
 
-def save_rfm_clusters(
-    schema: str,
-    table_name: str,
-    df: pd.DataFrame,
-    km: KMeans,
-    label_map: dict,
-    engine: create_engine,
-    labels: np.ndarray = None,
-    if_exists: str = 'replace',
-    execution_date=None
-) -> int:
+def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans, label_map: dict, engine: create_engine,
+                    labels: np.ndarray = None, if_exists: str = 'replace', execution_date=None) -> int:
     """
     Saves RFM cluster assignments to the database.
     Renames freq_30d → frequency and monetary_30d → monetary for storage.
@@ -235,16 +226,8 @@ def save_rfm_clusters(
     return len(result)
 
 
-def save_training_metadata(
-    engine: create_engine,
-    km: KMeans,
-    scaler: RobustScaler,
-    scaled_data: np.ndarray,
-    query: str,
-    start_date: str,
-    end_date: str,
-    n_samples: int
-):
+def save_training_metadata(engine: create_engine, km: KMeans, scaler: RobustScaler, scaled_data: np.ndarray,
+                            query: str, start_date: str, end_date: str, n_samples: int):
     """
     Saves training run metadata and scaler parameters to the database.
     Scaler stores log-transformed medians/IQRs for features: [recency, log_freq_30d, log_monetary_30d].

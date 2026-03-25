@@ -3,7 +3,7 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 from datetime import date, datetime
 from functools import partial
-from services.operation_orchestration import run_operation
+from services.orchestrations.operation import run_operation
 
 with DAG(
     dag_id="operation_centralize_pipeline",
