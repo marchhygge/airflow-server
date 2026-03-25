@@ -4,7 +4,7 @@ This module provides helper functions for backfill operations, including SQL gen
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from services.sql_services import get_max_date
+from services.core.sql import get_max_date
 
 # Resolve raw SQL based on table existence
 def resolve_raw_sql(config, is_exist):
@@ -20,9 +20,9 @@ def resolve_start_date_dt(table_name, max_date, default_date, is_exist):
     """
     input:
     - table_name: name of the target table from yaml config
-    - max_date:  from services.sql_services.get_max_date function
+    - max_date:  from services.core.sql.get_max_date function
     - default_date: the default start date from yaml config
-    - is_exist: from services.sql_services.check_exist_table function
+    - is_exist: from services.core.sql.check_exist_table function
 
     Process:
     - If table NOT exist: use default_date

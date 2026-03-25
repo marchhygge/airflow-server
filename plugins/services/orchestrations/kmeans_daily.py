@@ -2,7 +2,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
 from datetime import timedelta
-from services.kmeans_service import (
+from services.ml.kmeans import (
     compute_rfm,
     daily_assign_clusters,
     extract_data,

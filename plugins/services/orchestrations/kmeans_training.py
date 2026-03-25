@@ -1,7 +1,7 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
-from services.kmeans_service import (
+from services.ml.kmeans import (
     compute_rfm,
     extract_data,
     find_k,
