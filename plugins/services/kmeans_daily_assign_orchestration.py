@@ -1,71 +1,100 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
-from dateutil.relativedelta import relativedelta
+from datetime import timedelta
 from services.kmeans_service import (
+    compute_rfm,
     daily_assign_clusters,
     extract_data,
     load_artifact,
     save_rfm_clusters,
 )
 
-# Logging configuration
 log = logging.getLogger(__name__)
 
-# Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
 CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
-# Main orchestration function to run KMeans training process
+# Days of order history to pull for recency calculation.
+# Must cover the full training period so recency distribution matches training.
+RECENCY_LOOKBACK_DAYS = 180
+
+
 def customer_segmentation_daily_assign(config_file_name, **context):
+    """
+    Daily pipeline: assign each active customer to a cluster using the trained model.
+
+    Steps:
+      1. Load config
+      2. Init DB connection
+      3. Resolve execution date and date window
+      4. Load artifacts (scaler + KMeans)
+      5. Extract raw order data (180-day lookback for recency)
+      6. Compute RFM features (recency full-lookback, freq/monetary 30-day window)
+      7. Assign clusters (transform-only, no retraining)
+      8. Save daily cluster assignments
+    """
     try:
-        # 1. Load configuration from YAML file
-        log.info(f"1. Loading config from {config_file_name}...")
-        with open(f"{CONTEXTS_DIR}/{config_file_name}", 'r') as file:
-            config = yaml.safe_load(file)
-        # connection
-        conn = config['postgres']['conn_id']
-        # daily data parameters
+        # 1. Load config
+        log.info(f"1. Loading config: {config_file_name}")
+        with open(f"{CONTEXTS_DIR}/{config_file_name}", 'r') as f:
+            config = yaml.safe_load(f)
+
+        conn         = config['postgres']['conn_id']
         daily_schema = config['postgres']['daily']['schema']
-        daily_table = config['postgres']['daily']['table']
-        daily_query = config['postgres']['daily']['query']
-        # artifact parameters
+        daily_table  = config['postgres']['daily']['table']
+        daily_query  = config['postgres']['daily']['query']
+        window_days  = config['postgres']['daily']['window_days']
         artifact_query = config['postgres']['artifact']['query']
-        log.info(f"Config loaded. Daily Schema: {daily_schema}, Daily Table: {daily_table}, Connection ID: {conn}")
 
-        # 2. Init PostgresHook and Engine
-        log.info("2. Initializing PostgresHook and Engine...")
+        log.info(f"Config loaded | schema={daily_schema} | table={daily_table} | window={window_days}d")
+
+        # 2. Init DB connection
+        log.info("2. Initializing DB connection...")
         pg_hook = PostgresHook(postgres_conn_id=conn)
-        engine = pg_hook.get_sqlalchemy_engine()
+        engine  = pg_hook.get_sqlalchemy_engine()
 
-        #3. Load execution date from Airflow context
-        log.info("3. Loading execution date from Airflow context...")
+        # 3. Resolve execution date
+        log.info("3. Resolving execution date...")
         execution_date = context.get('execution_date')
-        end_date = execution_date + relativedelta(days=1)
         if execution_date is None:
-            raise ValueError("Execution date not found in Airflow context")
-        log.info(f"Execution date: {execution_date}")
+            raise ValueError("execution_date not found in Airflow context")
+
+        # snapshot = execution date (today in the backfill timeline)
+        # pull RECENCY_LOOKBACK_DAYS of history so recency distribution matches training
+        snapshot_date = execution_date.date()
+        start_date    = snapshot_date - timedelta(days=RECENCY_LOOKBACK_DAYS)
+        end_date      = snapshot_date
+
+        log.info(
+            f"snapshot={snapshot_date} | extract window={start_date} -> {end_date} | "
+            f"RFM window={window_days}d"
+        )
 
         # 4. Load artifacts
         log.info("4. Loading artifacts...")
         scaler = load_artifact(engine, "scaler", artifact_query)
-        km = load_artifact(engine, "kmeans_model", artifact_query)
-        if scaler is None or km is None:
-            raise ValueError("Required artifacts not found in database")
-        log.info("Artifacts loaded successfully")
+        km     = load_artifact(engine, "kmeans_model", artifact_query)
+        log.info("Artifacts loaded")
 
-        # 5. Extract daily data
-        log.info("5. Extracting daily data...")
-        df = extract_data(engine, daily_query, execution_date, end_date)
+        # 5. Extract raw order data
+        log.info("5. Extracting raw order data...")
+        df = extract_data(engine, daily_query, start_date, end_date)
 
-        # 6. Daily assign clusters (transform only, no training)
-        log.info("6. Assigning clusters to daily data...")
-        df, label, label_map = daily_assign_clusters(df, scaler, km)
+        # 6. Compute RFM features
+        log.info(f"6. Computing RFM (snapshot={snapshot_date}, window={window_days}d)...")
+        rfm = compute_rfm(df, snapshot_date, window_days)
 
-        # 7. Save daily assigned clusters to database
-        log.info("7. Saving daily assigned clusters to database...")
-        save_rfm_clusters(daily_schema, daily_table, df, km, label_map, engine,
-                          labels=label, if_exists='append', execution_date=execution_date.date())
+        # 7. Assign clusters
+        log.info("7. Assigning clusters...")
+        rfm, labels, label_map = daily_assign_clusters(rfm, scaler, km)
+
+        # 8. Save results
+        log.info("8. Saving daily cluster assignments...")
+        save_rfm_clusters(
+            daily_schema, daily_table, rfm, km, label_map, engine,
+            labels=labels, if_exists='append', execution_date=snapshot_date
+        )
 
     except Exception as e:
-        log.error(f"Error during KMeans daily assign orchestration: {str(e)}")
+        log.error(f"Daily assign failed: {e}")
         raise
