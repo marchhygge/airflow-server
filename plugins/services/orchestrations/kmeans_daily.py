@@ -3,6 +3,7 @@ import yaml
 import logging
 from datetime import timedelta
 from services.ml.kmeans import (
+from services.credentials.config import CONTEXTS_DIR, load_config
     compute_rfm,
     daily_assign_clusters,
     extract_data,
@@ -12,7 +13,6 @@ from services.ml.kmeans import (
 
 log = logging.getLogger(__name__)
 
-CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
 # Days of order history to pull for recency calculation.
 # Must cover the full training period so recency distribution matches training.
@@ -36,8 +36,7 @@ def customer_segmentation_daily_assign(config_file_name, **context):
     try:
         # 1. Load config
         log.info(f"1. Loading config: {config_file_name}")
-        with open(f"{CONTEXTS_DIR}/{config_file_name}", 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_file_name)
 
         conn         = config['postgres']['conn_id']
         daily_schema = config['postgres']['daily']['schema']

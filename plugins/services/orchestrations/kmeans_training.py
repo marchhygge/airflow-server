@@ -2,6 +2,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 import yaml
 import logging
 from services.ml.kmeans import (
+from services.credentials.config import CONTEXTS_DIR, load_config
     compute_rfm,
     extract_data,
     find_k,
@@ -16,7 +17,6 @@ from services.ml.kmeans import (
 
 log = logging.getLogger(__name__)
 
-CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
 
 def customer_segmentation_model_training(config_file_name):
@@ -40,8 +40,7 @@ def customer_segmentation_model_training(config_file_name):
     try:
         # 1. Load config
         log.info(f"1. Loading config: {config_file_name}")
-        with open(f"{CONTEXTS_DIR}/{config_file_name}", 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_file_name)
 
         conn             = config['postgres']['conn_id']
         training_schema  = config['postgres']['training']['schema']

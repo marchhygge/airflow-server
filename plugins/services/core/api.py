@@ -1,16 +1,12 @@
 """
-This module provides utility functions for interacting with APIs, 
-including 
-validating API responses, 
-loading configuration from YAML files, 
-retrieving API keys from Airflow Variables, and 
-loading data into PostgreSQL using SQLAlchemy. 
-It is designed to be used in the context of Airflow DAGs for orchestrating tasks that involve API calls and database interactions.
+This module provides utility functions for interacting with APIs,
+including validating API responses, retrieving API keys from Airflow Variables,
+and loading data into PostgreSQL using SQLAlchemy.
+
+Config loading is handled by services.credentials.config.
 """
 
 import requests
-from pathlib import Path
-import yaml
 import logging
 import pandas as pd
 from airflow.models import Variable
@@ -18,9 +14,6 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from sqlalchemy import text
 
 log = logging.getLogger(__name__)
-
-# Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
-CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
 # Define a dictionary of error messages corresponding to different error types that the API might return.
 def validate_api_status(response, messages):
@@ -45,14 +38,6 @@ def validate_api_status(response, messages):
     # If the response structure is unexpected, raise an error.
     else:
         raise ValueError(f"Unexpected API response structure: result='{result_status}'")
-
-# Load configuration from YAML
-def load_config(config_file_name: str):
-    config_path = Path(CONTEXTS_DIR) / config_file_name
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    with open(config_path) as f:
-        return yaml.safe_load(f)
 
 # Retrieve the API key from Airflow Variables.
 def get_api_key():

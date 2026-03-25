@@ -2,7 +2,7 @@ import yaml
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 from dateutil.relativedelta import relativedelta
-from services.core.api import load_config
+from services.credentials.config import CONTEXTS_DIR, load_config
 from services.core.sql import (
     check_exist_table,
     check_data_available,
@@ -27,7 +27,6 @@ from services.core.validate import (
 log = logging.getLogger(__name__)
 
 # Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
-CONTEXTS_DIR = "/home/ubuntu/airflow/airflow-server/contexts"
 
 # Main orchestration function to run backfill process
 def run_backfill(config_file_name):
