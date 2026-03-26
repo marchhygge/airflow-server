@@ -36,7 +36,7 @@ def extract_data(engine: create_engine, query: str, start_date: str, end_date: s
         raise
 
 
-def compute_rfm(df: pd.DataFrame, snapshot_date, window_days: int) -> pd.DataFrame:
+def compute_rfm(df: pd.DataFrame, snapshot_date: str, window_days: int) -> pd.DataFrame:
     """
     Computes RFM features from raw order data. Returns one row per customer.
 
@@ -87,6 +87,7 @@ def compute_rfm(df: pd.DataFrame, snapshot_date, window_days: int) -> pd.DataFra
         .merge(recency_df[['customer_unique_id', 'recency']], on='customer_unique_id', how='left')
         .merge(rfm_window, on='customer_unique_id', how='left')
     )
+    # Customers with no orders in the window get freq_30d=0, monetary_30d=0
     rfm['freq_30d'] = rfm['freq_30d'].fillna(0).astype(int)
     rfm['monetary_30d'] = rfm['monetary_30d'].fillna(0.0)
     rfm['snapshot_date'] = snapshot_date.date()
@@ -121,9 +122,9 @@ def preprocess(df: pd.DataFrame) -> tuple[np.ndarray, RobustScaler]:
             + pd.DataFrame(scaled, columns=['recency', 'log_freq_30d', 'log_monetary_30d']).describe().round(3).to_string()
         )
         return scaled, scaler
-    except KeyError as e:
+    except KeyError as e: # Missing expected column
         raise ValueError(f"Missing required column: {e}")
-    except Exception as e:
+    except Exception as e: # Catch-all for other preprocessing errors
         raise Exception(f"Error during preprocessing: {e}")
 
 
@@ -259,14 +260,8 @@ def save_training_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
     return training_id
 
 
-def save_centroid_metadata(
-    engine: create_engine,
-    km: KMeans,
-    scaler: RobustScaler,
-    query: str,
-    training_id: int,
-    label_map: dict
-) -> None:
+def save_centroid_metadata(engine: create_engine, km: KMeans, scaler: RobustScaler,
+                            query: str, training_id: int, label_map: dict) -> None:
     """
     Saves centroid coordinates (scaled and original scale) to the database.
     Both frequency_orig and monetary_orig are inverse-log-transformed via expm1.
