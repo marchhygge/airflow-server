@@ -288,7 +288,7 @@ def save_centroid_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
 def load_artifact(engine: create_engine, artifact_name: str, query: str) -> object:
     with engine.begin() as conn:
         result = conn.execute(text(query), {"artifact_name": artifact_name})
-        row = result.fetchone()
+        row = result.fetchone() # Expecting one row with artifact_data column
         if row is None:
             raise ValueError(f"No artifact found: {artifact_name}")
         obj = pickle.loads(row[0])
@@ -296,11 +296,7 @@ def load_artifact(engine: create_engine, artifact_name: str, query: str) -> obje
         return obj
 
 
-def daily_assign_clusters(
-    df: pd.DataFrame,
-    scaler: RobustScaler,
-    km: KMeans
-) -> tuple[pd.DataFrame, np.ndarray, dict]:
+def daily_assign_clusters(df: pd.DataFrame, scaler: RobustScaler, km: KMeans) -> tuple[pd.DataFrame, np.ndarray, dict]:
     """
     Assigns cluster labels to daily RFM data using the trained scaler and model.
     Applies the same log1p transform as training: both freq_30d and monetary_30d.
