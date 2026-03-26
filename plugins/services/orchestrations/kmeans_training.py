@@ -15,9 +15,8 @@ from services.ml.kmeans import (
     train_KMeans,
 )
 
+# Set up logging
 log = logging.getLogger(__name__)
-
-
 
 def customer_segmentation_model_training(config_file_name):
     """

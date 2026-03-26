@@ -5,6 +5,7 @@ from datetime import date, datetime
 from functools import partial
 from services.orchestrations.kmeans_daily import customer_segmentation_daily_assign
 
+context_file = "kmeans_rfm_daily.yaml"
 with DAG(
     dag_id="kmeans_daily_assign_pipeline",
     start_date=datetime(2017, 2, 28, 9, 0),
@@ -17,7 +18,7 @@ with DAG(
 
     kmeans_daily_assign = PythonOperator(
         task_id="daily_assign_clusters",
-        python_callable=partial(customer_segmentation_daily_assign, config_file_name="kmeans_rfm_daily.yaml"),
+        python_callable=partial(customer_segmentation_daily_assign, config_file_name=context_file),
         depends_on_past=True, 
     )
     
