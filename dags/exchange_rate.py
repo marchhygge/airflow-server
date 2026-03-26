@@ -13,7 +13,7 @@ with DAG(
     schedule="@daily",
     catchup=False, # Set to False to avoid backfilling when the DAG is first deployed
     max_active_runs=1, 
-    tags=["exchange_rate","test"]
+    tags=["exchange_rate","api"]
 ) as dag:
     
     quota_info = PythonOperator(
