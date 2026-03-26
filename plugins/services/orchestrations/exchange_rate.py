@@ -7,7 +7,7 @@ from services.core.api import (
     get_api_key,
     load_df_to_postgres
 )
-from plugins.services.core.config import load_config
+from services.core.config import load_config
 
 # log configuration
 log = logging.getLogger(__name__)
