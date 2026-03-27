@@ -9,7 +9,7 @@ context_file = "kmeans_rfm_daily.yaml"
 with DAG(
     dag_id="kmeans_daily_assign_pipeline",
     start_date=datetime(2017, 2, 28, 9, 0),
-    end_date=datetime(2017, 3, 31),
+    end_date=datetime(2017, 5, 31),
     schedule="@daily", # first run = start_date + 1 days
     catchup=True,
     max_active_runs=1,
