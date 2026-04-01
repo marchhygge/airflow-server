@@ -7,8 +7,8 @@ postgres:
     start_date: 2016-09-04
     end_date: 2017-02-28
     snapshot_date: 2017-02-28
-    window_days: 30
-    n_clusters: 3
+    window_days: 60
+    n_clusters: 4
     query: |
       SELECT
         c.customer_unique_id,
