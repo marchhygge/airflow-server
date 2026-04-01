@@ -1,5 +1,4 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-import yaml
 import logging
 from datetime import timedelta
 from services.core.config import load_config
@@ -12,7 +11,6 @@ from services.ml.kmeans import (
 )
 
 log = logging.getLogger(__name__)
-
 
 # Days of order history to pull for recency calculation.
 # Must cover the full training period so recency distribution matches training.

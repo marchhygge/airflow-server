@@ -42,10 +42,10 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: str, window_days: int) -> pd.Da
 
     Feature definitions:
      - Recency    : days since last purchase relative to snapshot_date (full period)
-     - freq_30d   : number of orders within the last window_days
-     - monetary_30d: total revenue within the last window_days
+     - freq_{window_days}d   : number of orders within the last window_days
+     - monetary_{window_days}d: total revenue within the last window_days
 
-    Customers who bought outside the window get freq_30d=0, monetary_30d=0
+    Customers who bought outside the window get freq_{window_days}d=0, monetary_{window_days}d=0
     (they become Cooling Down or Dormant segments).
 
     args:
@@ -53,7 +53,7 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: str, window_days: int) -> pd.Da
      - snapshot_date: reference date for recency calculation (typically end_date)
      - window_days: lookback window in days for frequency and monetary
     returns:
-     - pd.DataFrame: one row per customer with recency, freq_30d, monetary_30d, snapshot_date
+     - pd.DataFrame: one row per customer with recency, freq_{window_days}d, monetary_{window_days}d, snapshot_date
     """
     snapshot_date = pd.to_datetime(snapshot_date)
     window_start = snapshot_date - pd.Timedelta(days=window_days)
@@ -76,8 +76,8 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: str, window_days: int) -> pd.Da
     rfm_window = (
         df_window.groupby('customer_unique_id')
         .agg(
-            freq_30d=('event_date', 'count'),
-            monetary_30d=('revenue', 'sum')
+            freq_window_days=('event_date', 'count'),
+            monetary_window_days=('revenue', 'sum')
         )
     )
 
@@ -87,12 +87,12 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: str, window_days: int) -> pd.Da
         .merge(recency_df[['customer_unique_id', 'recency']], on='customer_unique_id', how='left')
         .merge(rfm_window, on='customer_unique_id', how='left')
     )
-    # Customers with no orders in the window get freq_30d=0, monetary_30d=0
-    rfm['freq_30d'] = rfm['freq_30d'].fillna(0).astype(int)
-    rfm['monetary_30d'] = rfm['monetary_30d'].fillna(0.0)
+    # Customers with no orders in the window get freq_window_days=0, monetary_window_days=0
+    rfm['freq_window_days'] = rfm['freq_window_days'].fillna(0).astype(int)
+    rfm['monetary_window_days'] = rfm['monetary_window_days'].fillna(0.0)
     rfm['snapshot_date'] = snapshot_date.date()
 
-    n_zero_freq = (rfm['freq_30d'] == 0).sum()
+    n_zero_freq = (rfm['freq_window_days'] == 0).sum()
     log.info(
         f"RFM computed: {len(rfm):,} customers | snapshot={snapshot_date.date()} | window={window_days}d\n"
         f"  freq=0 (outside window): {n_zero_freq:,} ({n_zero_freq / len(rfm):.1%})"
@@ -103,23 +103,23 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: str, window_days: int) -> pd.Da
 def preprocess(df: pd.DataFrame) -> tuple[np.ndarray, RobustScaler]:
     """
     Preprocesses RFM DataFrame for KMeans clustering.
-    Applies log1p to both freq_30d and monetary_30d, then RobustScaler.
+    Applies log1p to both freq_{window_days}d and monetary_{window_days}d, then RobustScaler.
 
     args:
-     - df: DataFrame with columns: recency, freq_30d, monetary_30d
+     - df: DataFrame with columns: recency, freq_{window_days}d, monetary_{window_days}d
     returns:
      - tuple[np.ndarray, RobustScaler]: scaled feature matrix and fitted scaler
     """
     try:
-        features = df[['recency', 'freq_30d', 'monetary_30d']].copy()
-        features['freq_30d'] = np.log1p(features['freq_30d'])
-        features['monetary_30d'] = np.log1p(features['monetary_30d'].astype(float))
+        features = df[['recency', 'freq_window_days', 'monetary_window_days']].copy()
+        features['freq_window_days'] = np.log1p(features['freq_window_days'])
+        features['monetary_window_days'] = np.log1p(features['monetary_window_days'].astype(float))
 
         scaler = RobustScaler()
         scaled = scaler.fit_transform(features)
         log.info(
             f"Scaler fitted | center={scaler.center_.round(4)} | scale={scaler.scale_.round(4)}\n"
-            + pd.DataFrame(scaled, columns=['recency', 'log_freq_30d', 'log_monetary_30d']).describe().round(3).to_string()
+            + pd.DataFrame(scaled, columns=['recency', 'log_freq_window_days', 'log_monetary_window_days']).describe().round(3).to_string()
         )
         return scaled, scaler
     except KeyError as e: # Missing expected column
@@ -139,12 +139,12 @@ def find_k(scaled_data: np.ndarray, k_range=range(2, 8)):
         log.info(f"k={k} | inertia={km.inertia_:,.1f} | silhouette={sil:.4f}")
 
 
-def train_KMeans(scaled_data: np.ndarray, n_clusters: int = 3) -> KMeans:
+def train_KMeans(scaled_data: np.ndarray, n_clusters: int = 4) -> KMeans:
     """
     Trains a KMeans model on scaled RFM data.
     args:
      - scaled_data: output of preprocess()
-     - n_clusters: number of segments (default 3)
+     - n_clusters: number of segments (default 4)
     returns:
      - KMeans: fitted model
     """
@@ -157,33 +157,45 @@ def train_KMeans(scaled_data: np.ndarray, n_clusters: int = 3) -> KMeans:
 
 def label_clusters(km: KMeans, scaler: RobustScaler) -> dict:
     """
-    Maps numeric cluster IDs to business segment names based on centroid recency rank.
+    Maps numeric cluster IDs to business segment names based on centroid recency and monetary ranks.
 
-    Segment logic (recency rank ascending = lower days = more recent = better):
-     - rank 1 (lowest recency) → active_buyers
-     - rank 2                  → cooling_down
-     - rank 3 (highest)        → dormant
+    Assignment logic (4 segments):
+     1. dormant      — highest recency (most inactive)
+     2. high_value   — highest monetary among remaining (recent + high spend)
+     3. active_buyers — lowest recency among remaining 2 (most recent, moderate spend)
+     4. cooling_down — the remaining cluster (medium recency, lower spend)
     """
     centroids_orig = scaler.inverse_transform(km.cluster_centers_)
 
     centroid_df = pd.DataFrame({
-        'cluster':      range(len(centroids_orig)),
-        'recency':      centroids_orig[:, 0],
-        'freq_30d':     np.expm1(centroids_orig[:, 1]),
-        'monetary_30d': np.expm1(centroids_orig[:, 2]),
+        'cluster':            range(len(centroids_orig)),
+        'recency':            centroids_orig[:, 0],
+        'freq_window_days':   np.expm1(centroids_orig[:, 1]),
+        'monetary_window_days': np.expm1(centroids_orig[:, 2]),
     })
 
-    centroid_df['r_rank'] = centroid_df['recency'].rank(ascending=True)
+    # Step 1: dormant = highest recency
+    dormant_cluster = int(centroid_df.loc[centroid_df['recency'].idxmax(), 'cluster'])
 
-    segment_map = {1: 'active_buyers', 2: 'cooling_down', 3: 'dormant'}
+    # Step 2: high_value = highest monetary among the remaining 3
+    rest = centroid_df[centroid_df['cluster'] != dormant_cluster]
+    high_value_cluster = int(rest.loc[rest['monetary_window_days'].idxmax(), 'cluster'])
+
+    # Step 3: active_buyers = lowest recency among remaining 2; cooling_down = the other
+    rest2 = rest[rest['cluster'] != high_value_cluster].sort_values('recency', ascending=True)
+    active_cluster  = int(rest2.iloc[0]['cluster'])
+    cooling_cluster = int(rest2.iloc[1]['cluster'])
+
     label_map = {
-        int(row['cluster']): segment_map[int(row['r_rank'])]
-        for _, row in centroid_df.iterrows()
+        active_cluster:     'active_buyers',
+        high_value_cluster: 'high_value',
+        cooling_cluster:    'cooling_down',
+        dormant_cluster:    'dormant',
     }
 
     log.info(
         "\n=== Cluster centroids (original scale) ===\n"
-        + centroid_df[['cluster', 'recency', 'freq_30d', 'monetary_30d', 'r_rank']].to_string(index=False)
+        + centroid_df[['cluster', 'recency', 'freq_window_days', 'monetary_window_days']].to_string(index=False)
         + f"\nLabel map: {label_map}"
     )
     return label_map
@@ -204,10 +216,10 @@ def save_rfm_clusters(schema: str, table_name: str, df: pd.DataFrame, km: KMeans
                     labels: np.ndarray = None, if_exists: str = 'replace', execution_date=None) -> int:
     """
     Saves RFM cluster assignments to the database.
-    Renames freq_30d → frequency and monetary_30d → monetary for storage.
+    Renames freq_window_days → frequency and monetary_window_days → monetary for storage.
     """
-    result = df[['customer_unique_id', 'recency', 'freq_30d', 'monetary_30d']].copy()
-    result = result.rename(columns={'freq_30d': 'frequency', 'monetary_30d': 'monetary'})
+    result = df[['customer_unique_id', 'recency', 'freq_window_days', 'monetary_window_days']].copy()
+    result = result.rename(columns={'freq_window_days': 'frequency', 'monetary_window_days': 'monetary'})
     result['cluster_id'] = labels if labels is not None else km.labels_
     result['cluster_name'] = result['cluster_id'].map(label_map)
     result['updated_at'] = pd.Timestamp.now()
@@ -231,7 +243,7 @@ def save_training_metadata(engine: create_engine, km: KMeans, scaler: RobustScal
                             query: str, start_date: str, end_date: str, n_samples: int):
     """
     Saves training run metadata and scaler parameters to the database.
-    Scaler stores log-transformed medians/IQRs for features: [recency, log_freq_30d, log_monetary_30d].
+    Scaler stores log-transformed medians/IQRs for features: [recency, log_freq_window_days, log_monetary_window_days].
     """
     sil = silhouette_score(scaled_data, km.labels_)
     with engine.begin() as conn:
@@ -299,18 +311,18 @@ def load_artifact(engine: create_engine, artifact_name: str, query: str) -> obje
 def daily_assign_clusters(df: pd.DataFrame, scaler: RobustScaler, km: KMeans) -> tuple[pd.DataFrame, np.ndarray, dict]:
     """
     Assigns cluster labels to daily RFM data using the trained scaler and model.
-    Applies the same log1p transform as training: both freq_30d and monetary_30d.
+    Applies the same log1p transform as training: both freq_window_days and monetary_window_days.
 
     args:
-     - df: DataFrame with columns: recency, freq_30d, monetary_30d
+     - df: DataFrame with columns: recency, freq_window_days, monetary_window_days
      - scaler: fitted RobustScaler from training
      - km: fitted KMeans from training
     returns:
      - (df, labels, label_map)
     """
-    features = df[['recency', 'freq_30d', 'monetary_30d']].copy()
-    features['freq_30d'] = np.log1p(features['freq_30d'])
-    features['monetary_30d'] = np.log1p(features['monetary_30d'].astype(float))
+    features = df[['recency', 'freq_window_days', 'monetary_window_days']].copy()
+    features['freq_window_days'] = np.log1p(features['freq_window_days'])
+    features['monetary_window_days'] = np.log1p(features['monetary_window_days'].astype(float))
 
     scaled = scaler.transform(features)
     labels = km.predict(scaled)
