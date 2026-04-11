@@ -87,10 +87,10 @@ def run_backfill(config_file_name, real_start: date, dataset_start: date, **cont
         execution_date = context['execution_date'].date()
         offset         = (execution_date - real_start).days
         snapshot_date  = dataset_start + timedelta(days=offset)
-        end_date       = validate_convert_datetime(snapshot_date)
+        end_date       = validate_convert_datetime(snapshot_date + timedelta(days=1))  # exclusive upper bound
         log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, date_column={date_column}")
         log.info(f"Replay config: real_start={real_start} | dataset_start={dataset_start}")
-        log.info(f"Replay offset: real={execution_date} | offset={offset}d | snapshot(end_date)={snapshot_date}")
+        log.info(f"Replay offset: real={execution_date} | offset={offset}d | snapshot={snapshot_date} | sql_end_date={snapshot_date + timedelta(days=1)} (exclusive)")
 
         # 2. Validate inputs
         log.info("2. Validating input parameters...")
