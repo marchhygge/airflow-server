@@ -1,19 +1,18 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
-from datetime import date, datetime
+from datetime import datetime
 from functools import partial
 from services.orchestrations.kmeans_daily import customer_segmentation_daily_assign
 
 context_file = "kmeans_rfm_daily.yaml"
 with DAG(
     dag_id="kmeans_daily_assign_pipeline",
-    start_date=datetime(2017, 2, 28, 9, 0),
-    end_date=datetime(2017, 5, 31),
-    schedule="@daily", # first run = start_date + 1 days
-    catchup=True,
+    start_date=datetime(2026, 4, 1),  # real_start: ngày đầu tiên chạy production
+    schedule="@daily",
+    catchup=False,
     max_active_runs=1,
-    tags=["machine learning", "daily assignment", "test"],  
+    tags=["machine learning", "daily assignment"],
 ) as dag:
 
     kmeans_daily_assign = PythonOperator(
