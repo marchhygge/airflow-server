@@ -10,7 +10,7 @@ with DAG(
     dag_id="kmeans_daily_assign_pipeline",
     start_date=datetime(2026, 4, 1),  # real_start: ngày đầu tiên chạy production
     schedule="@daily",
-    catchup=False,
+    catchup=True,   # backfill tuần tự từ start_date, depends_on_past giữ đúng thứ tự
     max_active_runs=1,
     tags=["machine learning", "daily assignment"],
 ) as dag:

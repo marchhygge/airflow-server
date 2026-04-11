@@ -65,6 +65,7 @@ def customer_segmentation_daily_assign(config_file_name, **context):
         end_date      = snapshot_date
 
         log.info(
+            f"dataset_start={dataset_start} | real_start={real_start} | "
             f"real_date={execution_date.date()} | offset={days_offset}d | "
             f"snapshot={snapshot_date} | extract window={start_date} -> {end_date} | "
             f"RFM window={window_days}d"
