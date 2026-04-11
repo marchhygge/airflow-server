@@ -7,13 +7,25 @@ from dateutil.relativedelta import relativedelta
 from services.core.sql import get_max_date
 
 # Resolve raw SQL based on table existence
-def resolve_raw_sql(config, is_exist):
+def resolve_raw_sql(config, is_exist, table_name=None):
     """
-    Decide CREATE or INSERT SQL block
+    Decide CREATE or INSERT SQL block.
+    For dim tables on re-run: prepend DELETE to avoid duplicate inserts.
     """
+    insert_block = config['query']['function']['insert'] + '\n' + config['query']['sql']
+
     if not is_exist:
         return config['query']['function']['create'] + '\n' + config['query']['sql']
-    return config['query']['function']['insert'] + '\n' + config['query']['sql']
+
+    if table_name and table_name.lower().startswith("dim_"):
+        delete_block = (
+            "DELETE FROM {{ schema }}.{{ table }}"
+            " WHERE {{ date_column }} >= '{{ start_date }}'"
+            " AND {{ date_column }} < '{{ end_date }}';"
+        )
+        return delete_block + '\n' + insert_block
+
+    return insert_block
 
 # Resolve start date for backfill
 def resolve_start_date_dt(table_name, max_date, default_date, is_exist):
@@ -48,7 +60,7 @@ def resolve_start_date_dt(table_name, max_date, default_date, is_exist):
         return max_date
 
 # Build SQL for a single backfill month
-def build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template):
+def build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template, date_column=None):
     """
     Input:
     - raw_sql: query from yaml config
@@ -56,23 +68,27 @@ def build_sql_for_month(raw_sql, schema, table, start_date_dt, render_template):
     - table: table name from yaml config
     - start_date_dt: the start date for this backfill iteration (datetime object)
     - render_template: function to render SQL with parameters
+    - date_column: optional, required when raw_sql contains {{ date_column }} (e.g. dim DELETE block)
 
     Process:
     - Calculate end_date_dt as start_date_dt + 1 month
-    - Render the SQL template with schema, table, start_date, and end_date
+    - Render the SQL template with schema, table, start_date, end_date, and optionally date_column
 
     Output:
     - rendered_sql: the final SQL string ready for execution
     """
     end_date_dt = start_date_dt + relativedelta(months=1)
 
-    return render_template(
-        raw_sql,
+    kwargs = dict(
         schema=schema,
         table=table,
         start_date=start_date_dt.strftime("%Y-%m-01"),
         end_date=end_date_dt.strftime("%Y-%m-01")
     )
+    if date_column:
+        kwargs['date_column'] = date_column
+
+    return render_template(raw_sql, **kwargs)
 
 # build SQL for a single day
 def build_sql_for_day(raw_sql, schema, table, process_date, render_template) -> str:
