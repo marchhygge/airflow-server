@@ -1,6 +1,7 @@
 import yaml
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
+from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from services.core.sql import (
     check_exist_table,
@@ -30,11 +31,14 @@ log = logging.getLogger(__name__)
 # Set contexts directory for config files (Default in Contexts folder, can be changed if needed)
 
 # Main orchestration function to run backfill process
-def run_backfill(config_file_name):
+def run_backfill(config_file_name, real_start: date, dataset_start: date, **context):
     """
     Docstring for run_backfill as orchestration function to run backfill process
     Args:
     - config_file_name: str, the name of the config file in contexts directory
+    - real_start: date, the first real execution date of the DAG
+    - dataset_start: date, the first date of the dataset to replay
+    - **context: Airflow context (contains execution_date, etc.)
     Raises:
     - ValueError: If any validation fails or backfill process encounters an error
     """
@@ -79,7 +83,14 @@ def run_backfill(config_file_name):
             elif "date_column" in k.lower():
                 date_column = v
                 validate_identifier(date_column, "date_column")
-        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, end_date={end_date}, date_column={date_column}")
+        # Override end_date bằng snapshot_date tính từ replay offset
+        execution_date = context['execution_date'].date()
+        offset         = (execution_date - real_start).days
+        snapshot_date  = dataset_start + timedelta(days=offset)
+        end_date       = validate_convert_datetime(snapshot_date)
+        log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, date_column={date_column}")
+        log.info(f"Replay config: real_start={real_start} | dataset_start={dataset_start}")
+        log.info(f"Replay offset: real={execution_date} | offset={offset}d | snapshot(end_date)={snapshot_date}")
 
         # 2. Validate inputs
         log.info("2. Validating input parameters...")
