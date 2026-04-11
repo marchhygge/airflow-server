@@ -11,7 +11,7 @@ REPLAY = {
 
 with DAG(
     dag_id="centralize_pipeline_backfill",
-    start_date=datetime(2026, 4, 1, 9, 0),
+    start_date=datetime(2026, 4, 1),  # midnight → first execution_date = 2026-04-01
     schedule="@daily",
     catchup=True,
     max_active_runs=1,
