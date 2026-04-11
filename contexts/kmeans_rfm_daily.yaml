@@ -25,7 +25,11 @@ postgres:
           o.order_id
 
   artifact:
-    query: | 
+    query: |
       select artifact_data
         from customer_segmentation.ml_artifacts
         where artifact_name = :artifact_name
+
+  replay:
+    dataset_start: "2017-03-01"
+    real_start: "2026-04-01"

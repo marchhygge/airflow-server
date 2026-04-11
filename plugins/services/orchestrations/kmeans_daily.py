@@ -1,6 +1,6 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
-from datetime import timedelta
+from datetime import date, timedelta
 from services.core.config import load_config
 from services.ml.kmeans import (
     compute_rfm,
@@ -36,12 +36,14 @@ def customer_segmentation_daily_assign(config_file_name, **context):
         log.info(f"1. Loading config: {config_file_name}")
         config = load_config(config_file_name)
 
-        conn         = config['postgres']['conn_id']
-        daily_schema = config['postgres']['daily']['schema']
-        daily_table  = config['postgres']['daily']['table']
-        daily_query  = config['postgres']['daily']['query']
-        window_days  = config['postgres']['daily']['window_days']
+        conn           = config['postgres']['conn_id']
+        daily_schema   = config['postgres']['daily']['schema']
+        daily_table    = config['postgres']['daily']['table']
+        daily_query    = config['postgres']['daily']['query']
+        window_days    = config['postgres']['daily']['window_days']
         artifact_query = config['postgres']['artifact']['query']
+        dataset_start  = date.fromisoformat(config['postgres']['replay']['dataset_start'])
+        real_start     = date.fromisoformat(config['postgres']['replay']['real_start'])
 
         log.info(f"Config loaded | schema={daily_schema} | table={daily_table} | window={window_days}d")
 
@@ -50,19 +52,20 @@ def customer_segmentation_daily_assign(config_file_name, **context):
         pg_hook = PostgresHook(postgres_conn_id=conn)
         engine  = pg_hook.get_sqlalchemy_engine()
 
-        # 3. Resolve execution date
+        # 3. Resolve execution date → map sang dataset date
         log.info("3. Resolving execution date...")
         execution_date = context.get('execution_date')
         if execution_date is None:
             raise ValueError("execution_date not found in Airflow context")
 
-        # snapshot = execution date (today in the backfill timeline)
-        # pull RECENCY_LOOKBACK_DAYS of history so recency distribution matches training
-        snapshot_date = execution_date.date()
+        # map real execution_date → dataset snapshot_date
+        days_offset   = (execution_date.date() - real_start).days
+        snapshot_date = dataset_start + timedelta(days=days_offset)
         start_date    = snapshot_date - timedelta(days=RECENCY_LOOKBACK_DAYS)
         end_date      = snapshot_date
 
         log.info(
+            f"real_date={execution_date.date()} | offset={days_offset}d | "
             f"snapshot={snapshot_date} | extract window={start_date} -> {end_date} | "
             f"RFM window={window_days}d"
         )
