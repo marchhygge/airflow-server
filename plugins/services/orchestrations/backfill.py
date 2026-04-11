@@ -1,4 +1,3 @@
-import yaml
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 import logging
 from datetime import date, timedelta
@@ -90,7 +89,7 @@ def run_backfill(config_file_name, real_start: date, dataset_start: date, **cont
         end_date       = validate_convert_datetime(snapshot_date + timedelta(days=1))  # exclusive upper bound
         log.info(f"Config loaded: conn_id={conn_id}, schema={schema}, table={table}, start_date={start_date}, date_column={date_column}")
         log.info(f"Replay config: real_start={real_start} | dataset_start={dataset_start}")
-        log.info(f"Replay offset: real={execution_date} | offset={offset}d | snapshot={snapshot_date} | sql_end_date={snapshot_date + timedelta(days=1)} (exclusive)")
+        log.info(f"Replay offset: real(execution_date)={execution_date} | offset={offset}d | snapshot={snapshot_date} | sql_end_date={snapshot_date + timedelta(days=1)} (exclusive)")
 
         # 2. Validate inputs
         log.info("2. Validating input parameters...")
@@ -119,7 +118,7 @@ def run_backfill(config_file_name, real_start: date, dataset_start: date, **cont
 
         # 5. Resolve SQL & start date
         log.info("5. Resolving SQL template and start date for backfill...")
-        process_sql = resolve_raw_sql(config, is_exist)
+        process_sql = resolve_raw_sql(config, is_exist, table)
         start_date_dt = resolve_start_date_dt(table, max_date, start_date, is_exist)
 
         # 6. Backfill loop (Check data availability and execute SQL month by month)
@@ -138,7 +137,7 @@ def run_backfill(config_file_name, real_start: date, dataset_start: date, **cont
                 continue
             
             # Execute SQL
-            sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template)
+            sql = build_sql_for_month(process_sql, schema, table, start_date_dt, render_template, date_column)
             execute_sql(pg_hook, sql)
             execute = True
             break
