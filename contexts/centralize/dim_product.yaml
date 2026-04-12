@@ -23,10 +23,6 @@ query:
          , p.product_width_cm as width_cm
     from public.products p 
     where p.product_id in (
-      select product_id 
-      from public.orders o
-      left join public.order_items oi on o.order_id = oi.order_id
-      where date(o.order_purchase_timestamp) >= '{{start_date}}'
-        and date(o.order_purchase_timestamp) < '{{end_date}}'
-        and product_id is not null
+      select distinct product_id 
+      from centralize.fact_order_item
     )
