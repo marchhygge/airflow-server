@@ -1,0 +1,11 @@
+postgres:
+  conn_id: supermarket
+
+views:
+  - schema: report
+    concurrently: false
+    names:
+      - mv_executive_overview
+      - mv_commercial_performance
+      - mv_user_experience
+      - mv_finance_payment_performance
