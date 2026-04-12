@@ -20,19 +20,18 @@ query:
          , c.customer_city as city
          , c.customer_state as state
     from public.customers c
-    left join public.orders o 
+    inner join public.orders o
         on o.customer_id = c.customer_id
-        and date(o.order_purchase_timestamp) >='{{start_date}}'	
-          and date(o.order_purchase_timestamp) < '{{end_date}}'
+    where date(o.order_purchase_timestamp) >= '{{start_date}}'
+      and date(o.order_purchase_timestamp) < '{{end_date}}'
     union
     select distinct 'seller' as user_type
          , s.seller_id as user_id
          , null as user_unique_id
          , s.seller_city as city
          , s.seller_state as state
-    from public.sellers s 
-    left join public.order_items oi on oi.seller_id = s.seller_id
-    left join public.orders o 
-        on o.order_id = oi.order_id
-        and date(o.order_purchase_timestamp) >= '{{start_date}}'
-        and date(o.order_purchase_timestamp) < '{{end_date}}'
+    from public.sellers s
+    inner join public.order_items oi on oi.seller_id = s.seller_id
+    inner join public.orders o on o.order_id = oi.order_id
+    where date(o.order_purchase_timestamp) >= '{{start_date}}'
+      and date(o.order_purchase_timestamp) < '{{end_date}}'
