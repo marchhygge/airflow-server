@@ -108,13 +108,35 @@ def run_backfill(config_file_name, real_start: date, dataset_start: date, **cont
         log.info("4. Checking table existance and getting max date")
         is_exist = check_exist_table(pg_hook, schema, table)
         max_date = None
+        is_dim = table.lower().startswith("dim")
+
         if is_exist:
-            max_date = get_max_date(pg_hook, schema, table, based_on, date_column)
-            if max_date:
-                max_date = validate_convert_datetime(max_date) 
-                if max_date >= end_date:
-                    log.info(f"Table {schema}.{table} is already up to date with max_date={max_date:%Y-%m-%d}, skipping backfill")
-                    return
+            if is_dim:
+                # Dim tables have no date column in their output schema.
+                # Cannot use DELETE-range or max_date-of-dim-itself.
+                # Strategy:
+                #   - If dim is empty → treat as fresh (is_exist=False → CREATE TABLE AS)
+                #   - If dim has data → use fact proxy max_date only as loop-start hint,
+                #     NOT as a skip condition. EXCEPT INSERT handles idempotency in the loop.
+                dim_has_data = check_data_available(pg_hook, f"SELECT 1 FROM {schema}.{table}")
+                if not dim_has_data:
+                    log.info(f"Dim table {schema}.{table} exists but is empty, treating as fresh")
+                    is_exist = False
+                else:
+                    max_date = get_max_date(pg_hook, schema, table, based_on, date_column)
+                    if max_date:
+                        max_date = validate_convert_datetime(max_date)
+                    log.info(f"Dim {schema}.{table}: has data, fact proxy max_date={max_date} (loop start hint only — no skip)")
+                    # Intentionally NOT applying max_date >= end_date skip for dim tables.
+                    # EXCEPT INSERT in loop ensures only new rows are inserted.
+            else:
+                # Fact tables: skip if max_date is already past current snapshot
+                max_date = get_max_date(pg_hook, schema, table, based_on, date_column)
+                if max_date:
+                    max_date = validate_convert_datetime(max_date)
+                    if max_date >= end_date:
+                        log.info(f"Table {schema}.{table} is already up to date with max_date={max_date:%Y-%m-%d}, skipping backfill")
+                        return
 
         # 5. Resolve SQL & start date
         log.info("5. Resolving SQL template and start date for backfill...")

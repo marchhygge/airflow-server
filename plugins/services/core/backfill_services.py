@@ -10,7 +10,11 @@ from services.core.sql import get_max_date
 def resolve_raw_sql(config, is_exist, table_name=None):
     """
     Decide CREATE or INSERT SQL block.
-    For dim tables on re-run: prepend DELETE to avoid duplicate inserts.
+    - First run (table not exist): CREATE TABLE AS ... + raw_sql
+    - Fact re-run: INSERT INTO ... + raw_sql
+    - Dim re-run: INSERT INTO ... SELECT * FROM (raw_sql) EXCEPT SELECT * FROM existing table
+      Dim tables have no date column in their output, so DELETE-range approach would fail.
+      EXCEPT ensures only new rows are inserted — idempotent without needing a unique key.
     """
     insert_block = config['query']['function']['insert'] + '\n' + config['query']['sql']
 
@@ -18,12 +22,16 @@ def resolve_raw_sql(config, is_exist, table_name=None):
         return config['query']['function']['create'] + '\n' + config['query']['sql']
 
     if table_name and table_name.lower().startswith("dim_"):
-        delete_block = (
-            "DELETE FROM {{ schema }}.{{ table }}"
-            " WHERE {{ date_column }} >= '{{ start_date }}'"
-            " AND {{ date_column }} < '{{ end_date }}';"
+        raw_sql = config['query']['sql'].rstrip().rstrip(';')
+        except_insert = (
+            config['query']['function']['insert'] + "\n"
+            "SELECT * FROM (\n"
+            + raw_sql + "\n"
+            ") _new_rows\n"
+            "EXCEPT\n"
+            "SELECT * FROM {{ schema }}.{{ table }};"
         )
-        return delete_block + '\n' + insert_block
+        return except_insert
 
     return insert_block
 
