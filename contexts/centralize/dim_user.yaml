@@ -20,10 +20,10 @@ query:
          , c.customer_city as city
          , c.customer_state as state
     from public.customers c
-    inner join public.orders o
-        on o.customer_id = c.customer_id
-    where date(o.order_purchase_timestamp) >= '{{start_date}}'
-      and date(o.order_purchase_timestamp) < '{{end_date}}'
+    where c.customer_id in (
+      select distinct customer_id
+      from centralize.fact_order
+    )
     union
     select distinct 'seller' as user_type
          , s.seller_id as user_id
@@ -31,7 +31,7 @@ query:
          , s.seller_city as city
          , s.seller_state as state
     from public.sellers s
-    inner join public.order_items oi on oi.seller_id = s.seller_id
-    inner join public.orders o on o.order_id = oi.order_id
-    where date(o.order_purchase_timestamp) >= '{{start_date}}'
-      and date(o.order_purchase_timestamp) < '{{end_date}}'
+    where s.seller_id in (
+      select distinct seller_id
+      from centralize.fact_order_item
+    )

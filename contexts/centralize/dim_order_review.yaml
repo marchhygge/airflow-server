@@ -15,7 +15,7 @@ query:
     create: create table if not exists {{ schema }}.{{ table }} as
     insert: insert into {{ schema }}.{{ table }}
   sql: |
-    select ors.review_id 
+    select distinct ors.review_id 
          , ors.order_id
          , ors.review_comment_title
          , ors.review_comment_message
@@ -23,8 +23,6 @@ query:
          , ors.review_answer_timestamp
     from public.order_reviews ors
     where ors.order_id in (
-      select o.order_id
-      from public.orders o
-      where date(o.order_purchase_timestamp) >='{{start_date}}'	
-        and date(o.order_purchase_timestamp) < '{{end_date}}'
+      select distinct fo.order_id
+      from centralize.fact_order fo
     )
