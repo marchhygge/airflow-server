@@ -113,19 +113,11 @@ def run_backfill(config_file_name, real_start: date, dataset_start: date, **cont
         if is_exist:
             if is_dim:
                 # Dim tables have no date column in their output schema.
-                # Cannot use DELETE-range or max_date-of-dim-itself.
-                # Strategy: always use EXCEPT INSERT (handles both empty and partial tables).
-                #   - Empty dim  → EXCEPT against empty table = all rows → inserts all
-                #   - Partial dim → EXCEPT filters existing rows → inserts only new
-                # IMPORTANT: do NOT set is_exist=False for empty dim tables.
-                #   CREATE TABLE IF NOT EXISTS ... AS SELECT is a no-op when table already exists.
-                # Use fact proxy max_date only as loop-start hint, NOT as a skip condition.
-                max_date = get_max_date(pg_hook, schema, table, based_on, date_column)
-                if max_date:
-                    max_date = validate_convert_datetime(max_date)
-                log.info(f"Dim {schema}.{table}: fact proxy max_date={max_date} (loop start hint only — no skip)")
-                # Intentionally NOT applying max_date >= end_date skip for dim tables.
-                # EXCEPT INSERT in loop ensures only new rows are inserted.
+                # Do NOT use fact proxy max_date as loop start hint:
+                #   fact may be ahead of the current snapshot → start_date_dt > end_date → loop never runs.
+                # Keep max_date = None → resolve_start_date_dt returns config start_date → loop starts correctly.
+                # EXCEPT INSERT in the loop handles idempotency (only inserts rows not already in dim table).
+                log.info(f"Dim {schema}.{table}: skipping max_date check, EXCEPT INSERT handles dedup")
             else:
                 # Fact tables: skip if max_date is already past current snapshot
                 max_date = get_max_date(pg_hook, schema, table, based_on, date_column)
