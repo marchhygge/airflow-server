@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 from datetime import datetime, date
+from airflow.models.baseoperator import chain
 from services.orchestrations.operator import run_star_schema
 
 REPLAY = {
@@ -75,5 +76,5 @@ with DAG(
     facts = [fact_order, fact_order_item, fact_payment, fact_order_review]
     dims = [dim_product, dim_order_review, dim_user]
 
-    # Set dependencies: start -> facts -> dims -> end
-    start >> facts >> dims >> end
+    # Chain tasks: start → facts in parallel → dims in parallel → end
+    chain(start, facts, dims, end)
