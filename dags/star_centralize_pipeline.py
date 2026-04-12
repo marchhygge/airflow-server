@@ -69,12 +69,8 @@ with DAG(
 
     # create start and end dummy tasks for better visualization
     start = EmptyOperator(task_id="start")
+    barrier = EmptyOperator(task_id="barrier")  # barrier to ensure all facts are done before starting dims
     end = EmptyOperator(task_id="end")
 
-    # Define facts and dims
-    facts = [fact_order, fact_order_item, fact_payment, fact_order_review]
-    dims = [dim_product, dim_order_review, dim_user]
-
-    start >> facts
-    facts >> dims
-    dims >> end
+    start >> [fact_order, fact_order_item, fact_payment, fact_order_review] >> barrier
+    barrier >> [dim_product, dim_order_review, dim_user] >> end
