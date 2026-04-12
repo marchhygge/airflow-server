@@ -1,6 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
+from airflow.models import chain
 from datetime import datetime, date
 from services.orchestrations.operator import run_star_schema
 
@@ -71,4 +72,9 @@ with DAG(
     start = EmptyOperator(task_id="start")
     end = EmptyOperator(task_id="end")
 
-    start >> [fact_order, fact_order_item, fact_payment, fact_order_review] >> [dim_product, dim_order_review, dim_user] >> end
+    # Define facts and dims
+    facts = [fact_order, fact_order_item, fact_payment, fact_order_review]
+    dims = [dim_product, dim_order_review, dim_user]
+
+    # Chain: start -> facts (parallel) -> dims -> end
+    chain(start, facts, dims, end)
