@@ -5,7 +5,8 @@ views:
   - schema: report
     concurrently: false
     names:
-      - mv_executive_overview
-      - mv_commercial_performance
-      - mv_user_experience
-      - mv_finance_payment_performance
+      - commercial_performance_v2
+      - exchange_rate
+      - executive_overview_v2
+      - finance_payment_performance_v2
+      - user_experience_v2
